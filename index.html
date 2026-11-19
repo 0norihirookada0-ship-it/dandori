@@ -139,7 +139,7 @@ button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 
 // ───────── アプリ版の殻(app/build.mjs が入れる) ─────────
 const API = "https://script.google.com/macros/s/AKfycbxpIDEYjPuIrUQY4yy5pFfgFZslzVvxiP-nSV_D-wgJ0XKq3zH4nP2SB2NUsYocCvp7bQ/exec";
-const APP_VERSION = "2026.1119.2011";
+const APP_VERSION = "2026.1119.2029";
 // 合言葉: リンクの #k=… から取り、端末に覚える。iPhone はホーム画面のアイコンが開いたときの URL(# つき)を覚えるので、# は消さない
 const KEY = (() => {
   let k = "";
@@ -363,7 +363,7 @@ function sameEntries(){return !replaceRef&&F&&F.site?sameFor(F):[]}
 let needMsg = "";       // サーバーに「新規か予定変更かを選んで」と止められたときの文
 function freshen(done){google.script.run.withSuccessHandler(d=>{D=d;if(done)done()}).withFailureHandler(()=>{}).getStart(KEY)}
 // まとめて送る中で、台帳に同じ日・同じ現場・同じ会社の段取りがあるのに、まだ「新規」を選んでいないもの
-function reviewClash(){return review?review.filter(f=>!f.asNew&&sameFor(f).length):[]}
+function reviewClash(){return review?review.filter(f=>!f.asNew&&!f.replaceRef&&sameFor(f).length):[]}
 function reviewNew(i){review[i].asNew=true;refresh()}
 function reviewAllNew(){review.forEach(f=>{f.asNew=true});needMsg="";refresh()}
 function reviewDrop(i){review.splice(i,1);if(!review.length)review=null;render()}
@@ -439,14 +439,14 @@ function render(){
   }
   const s=STEPS[step];
   let h='<h2>'+(step+1)+'. '+s.title+'</h2>';
-  if(cart.length&&!replaceRef)h+=vCart(s.id==="confirm");
+  if(cart.length)h+=vCart(s.id==="confirm");
   h+=({start:vStart,site:vSite,work:vWork,people:vPeople,crews:vCrews,vehicles:vVehicles,drivers:vDrivers,meet:vMeet,confirm:vConfirm})[s.id]();
   el("main").innerHTML=h;
   initPosMap();
   const m=progress();
   const f=[];
   if(step>0)f.push('<button onclick="go(-1)">戻る</button>');
-  if(s.id==="confirm")f.push('<button class="send'+(m.length?"":" ready")+'" id="sendBtn" onclick="send()" '+(m.length||sending?"disabled":"")+'>'+(sending?"送信中…":replaceRef?"変更を送信":cart.length?"文面を確認して送信("+(cart.length+1)+" 件)":"送信")+'</button>');
+  if(s.id==="confirm")f.push('<button class="send'+(m.length?"":" ready")+'" id="sendBtn" onclick="send()" '+(m.length||sending?"disabled":"")+'>'+(sending?"送信中…":cart.length?"文面を確認して送信("+(cart.length+1)+" 件)":replaceRef?"変更を送信":"送信")+'</button>');
   else f.push('<button class="go" onclick="go(1)">次へ</button>');
   el("foot").innerHTML=f.join("");
   window.scrollTo(0,0);
@@ -854,7 +854,7 @@ function vConfirm(){
   h+='<p class="hint">'+esc(F.company)+' の LINE にはこう流れます'+(replaceRef?"(変わった所だけ)":"")+'</p><div class="preview">'+esc(postText())+'</div>';
   if(!isRest(F))h+='<p style="margin-top:16px">KY(危険予知)</p><div class="row"><button class="chip'+(F.ky?" on":"")+'" onclick="F.ky=true;refresh()">KY を出す</button><button class="chip'+(F.ky?"":" on")+'" onclick="F.ky=false;refresh()">KY は出さない</button></div>';
   h+='<p class="small" style="margin-top:12px">送信すると台帳に 1 行足し、ECP ボットが LINE に投稿します。'+(F.ky?"天気と作業から KY の案も作り、LINE に KY の案内を付けます。":"KY の案は作らず、LINE にも KY の案内を付けません。")+'</p>';
-  if(!replaceRef){
+  {
     const full=cart.length+1>=CART_MAX;
     h+='<button class="btn" style="margin-top:16px" onclick="putAside()" '+(m.length||full?"disabled":"")+'>続けてほかの段取りを入れる(まだ送らない)</button>';
     h+='<p class="small">'+(full?"まとめて送れるのは "+CART_MAX+" 件までです。いったん送信してください":"続けて入れた段取りは、送信するまで LINE に流れません。最後に全部の文面を確かめてから、1 回の投稿にまとめて送ります")+'</p>';
@@ -864,13 +864,17 @@ function vConfirm(){
 // 置いておいた段取りの一覧(どの画面でも上に出す)
 function vCart(onConfirm){
   let h='<div class="note"><b>置いた段取り '+cart.length+' 件</b>'+(onConfirm?"(この段取りと一緒に送ります)":"(まだ送っていません)");
-  cart.forEach((f,i)=>{h+='<div class="row" style="justify-content:space-between;margin:6px 0"><span>'+label(f.day)+' '+esc(f.site)+'('+esc(String(f.work).slice(0,16))+')</span><span><button class="chip" onclick="editCart('+i+')">直す</button> <button class="chip" onclick="cart.splice('+i+',1);refresh()">× 外す</button></span></div>'});
+  cart.forEach((f,i)=>{h+='<div class="row" style="justify-content:space-between;margin:6px 0"><span>'+(f.replaceRef?"【変更】":"")+label(f.day)+' '+esc(f.site)+'('+esc(String(f.work).slice(0,16))+')</span><span><button class="chip" onclick="editCart('+i+')">直す</button> <button class="chip" onclick="cart.splice('+i+',1);refresh()">× 外す</button></span></div>'});
   if(!onConfirm)h+='<div class="row"><button class="chip" onclick="sendCart()" '+(sending?"disabled":"")+'>'+(sending?"送信中…":"置いた "+cart.length+" 件の文面を確認して送る")+'</button></div>';
   return h+'</div>';
 }
+// 予定変更の段取りも置ける(2026/11/19)。直す元(replaceRef)と前の内容(original)を段取りに持たせて置く
+function stamp(){F.replaceRef=replaceRef;F.original=original}
 function putAside(){
-  if(missing().length||replaceRef)return;
+  if(missing().length)return;
+  stamp();
   cart.push(F);
+  replaceRef="";original=null;
   const keep={day:F.day,ky:isRest(F)?true:F.ky,company:F.company};
   // 置いた段取りと同じ現場をもう 1 件入れるときは、新規として扱う(同じ送信の中の別の段取り)
   F=Object.assign(blank(),keep);prefillNote="";step=1;render();
@@ -878,13 +882,13 @@ function putAside(){
 // 置いた段取りを取り出して直す(今入れかけの分は置いた一覧に戻す)
 function editCart(i){
   const f=cart.splice(i,1)[0];
-  if(F.site&&!missing().length)cart.push(F);
-  F=f;prefillNote="";step=1;render();
+  if(F.site&&!missing().length){stamp();cart.push(F)}
+  F=f;replaceRef=F.replaceRef||"";original=F.original||null;prefillNote="";step=1;render();
 }
 
 function send(){
   if(sending||missing().length)return;
-  if(cart.length&&!replaceRef){review=cart.concat([F]);render();freshen(()=>{if(review)refresh()});return}
+  if(cart.length){stamp();review=cart.concat([F]);render();freshen(()=>{if(review)refresh()});return}
   sending=true;refresh();
   google.script.run.withSuccessHandler(r=>{
     sending=false;
@@ -900,8 +904,9 @@ function manyTexts(list){
   return ["ネクサス","フォレスト総建","伊賀林業"].map(co=>{
     const mine=list.filter(f=>(f.company||"ネクサス")===co);
     if(!mine.length)return null;
-    const body=mine.map((f,i)=>{const t=texts(f);if(isRest(f))return "━━━━━━\n"+(i+1)+". "+label(f.day)+" "+f.site+"\n人員:"+t.people+"\n備考:"+f.note;return "━━━━━━\n"+(i+1)+". "+label(f.day)+" "+f.site+"\n作業:"+f.work+"\n人員:"+t.people+"\n協力:"+t.crews+"\n車両:"+t.vehicles+"\n集合:"+f.meet+"\n備考:"+f.note+(f.ky?"\nKY案・確認: (送ると KY のリンクが付きます)":"")}).join("\n");
-    return {company:co,count:mine.length,text:"【新規】"+mine[0].inputter+"さんより "+mine.length+" 件\n"+body};
+    const nChange=mine.filter(f=>f.replaceRef&&f.original).length,mixed=nChange>0&&nChange<mine.length;
+    const body=mine.map((f,i)=>{const t=texts(f);if(f.replaceRef&&f.original){const a=fields(f.original),b=fields(f),ch=b.filter((x,k)=>x[1]!==a[k][1]).map(x=>"▶"+x[0]+":"+(x[1]||"(空)")+"\n  (前:"+(a.find(y=>y[0]===x[0])[1]||"(空)")+")");return "━━━━━━\n"+(i+1)+". "+(mixed?"〔予定変更〕":"")+label(f.day)+" "+f.site+"\n"+(ch.length?ch.join("\n"):"内容は前と同じです(送り直し)")+(f.ky?"\nKY案・確認: (送ると KY のリンクが付きます)":"")}if(isRest(f))return "━━━━━━\n"+(i+1)+". "+label(f.day)+" "+f.site+"\n人員:"+t.people+"\n備考:"+f.note;return "━━━━━━\n"+(i+1)+". "+label(f.day)+" "+f.site+"\n作業:"+f.work+"\n人員:"+t.people+"\n協力:"+t.crews+"\n車両:"+t.vehicles+"\n集合:"+f.meet+"\n備考:"+f.note+(f.ky?"\nKY案・確認: (送ると KY のリンクが付きます)":"")}).join("\n");
+    return {company:co,count:mine.length,text:(nChange===0?"【新規】":mixed?"【新規・予定変更】":"【予定変更】")+mine[0].inputter+"さんより "+mine.length+" 件\n"+body};
   }).filter(Boolean);
 }
 function vReview(){
@@ -921,13 +926,13 @@ function sendMany(list){
     const sent=list.map(f=>f.requestId);
     review=null;
     cart=cart.filter(f=>sent.indexOf(f.requestId)<0);
-    if(sent.indexOf(F.requestId)>=0)F=blank();
+    if(sent.indexOf(F.requestId)>=0){F=blank();replaceRef="";original=null}
     el("doneLine").textContent=r.results.length+" 件を台帳に入れました。"+(r.line?r.line.message:"(同じ送信は 1 回だけ記録しました)");
     const ky=r.results.filter(x=>x.kyUrl);
     el("doneKy").innerHTML=ky.length?"KY の案:<br>"+ky.map(x=>'<a href="'+esc(x.kyUrl)+'" target="_blank" style="color:var(--accent)">'+esc(label(x.day)+" "+x.site)+'</a>').join("<br>"):"";
     el("kyLink").style.display="none";
     el("done").classList.add("show");
-  }).withFailureHandler(e=>sendFailed(e,true)).submitMany(KEY,list);
+  }).withFailureHandler(e=>sendFailed(e,true)).submitMany(KEY,list.map(f=>{const c=Object.assign({},f);delete c.original;return c}));
 }
 // 続けてもう 1 件: サーバーの返事を待たずに、手元の一覧ですぐ次を打てるようにする。
 // 入力済みの段取りなどは裏で取り直し、最初の画面にいるときだけ描き直す(打っている途中の文字を消さない)
