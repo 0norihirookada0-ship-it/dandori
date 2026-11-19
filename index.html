@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>段取り入力</title>
+<meta name="theme-color" content="#060b17">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="段取り">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<style>
+/* アプリ版だけの見た目(全画面のときの上下の余白・押し心地) */
+html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
+header{padding-top:calc(10px + env(safe-area-inset-top))}
+body{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
+button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.appg ol{margin:6px 0 0;padding-left:1.3em;font-size:21px;line-height:1.7}
+.appg li{margin:6px 0}
+/* 新しい版の知らせ */
+#appNew{position:fixed;left:0;right:0;top:0;z-index:40;padding:calc(8px + env(safe-area-inset-top)) 10px 8px;background:rgba(6,11,23,.96);border-bottom:2px solid #ffcc33}
+#appNew button{width:100%;min-height:56px;border-radius:14px;border:2px solid #ffcc33;background:#4a3a07;color:#fff;font-size:20px;font-weight:800}
+/* 起動画面 */
+#appSplash{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(70% 50% at 50% 35%,#12305f 0%,transparent 75%),#060b17;transition:opacity .4s}
+#appSplash.off{opacity:0;pointer-events:none}
+#appSplash img{width:132px;height:132px;border-radius:30px;box-shadow:0 0 34px rgba(34,227,255,.35)}
+#appSplash b{font-size:30px;letter-spacing:.12em}
+#appSplash span{font-size:17px;color:#d6defa}
+#appSplash i{display:block;width:150px;height:6px;border-radius:3px;background:#1b2747;overflow:hidden}
+#appSplash i::after{content:"";display:block;width:40%;height:100%;border-radius:3px;background:#22e3ff;animation:appRun 1.1s ease-in-out infinite}
+@keyframes appRun{0%{transform:translateX(-110%)}100%{transform:translateX(270%)}}
+</style>
+<style>
+:root{--bg:#060b17;--panel:#0f1830;--panel2:#16213f;--line:#2a3a66;--text:#ffffff;--sub:#d6defa;--accent:#22e3ff;--ok:#2ee66b;--warn:#ffcc33;--err:#ff6b6b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Hiragino Sans","Noto Sans JP","Meiryo",sans-serif;font-size:20px;line-height:1.45}
+body{padding-bottom:120px}
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:radial-gradient(60% 40% at 15% 0%,#12305f 0%,transparent 70%),radial-gradient(50% 40% at 100% 100%,#1a1f5c 0%,transparent 70%),var(--bg)}
+.bg i{position:absolute;height:2px;width:60%;left:-60%;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.55;filter:drop-shadow(0 0 6px var(--accent));animation:run 9s linear infinite}
+.bg i:nth-child(1){top:18%}.bg i:nth-child(2){top:52%;animation-delay:3s;animation-duration:12s}.bg i:nth-child(3){top:83%;animation-delay:6s}
+@keyframes run{to{transform:translateX(270%)}}
+@media (prefers-reduced-motion:reduce){.bg i{animation:none;display:none}}
+header{position:sticky;top:0;z-index:5;background:rgba(6,11,23,.92);border-bottom:1px solid var(--line);padding:10px 14px 8px}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+h1{font-size:22px;margin:0;font-weight:800;letter-spacing:.05em}
+.mode{font-size:17px;color:var(--warn);font-weight:700}
+.prog{margin-top:8px;height:14px;border-radius:7px;background:#1b2747;overflow:hidden;border:1px solid var(--line)}
+.prog b{display:block;height:100%;width:0;background:linear-gradient(90deg,#0ea5e9,var(--accent));transition:width .3s}
+.left{margin-top:4px;font-size:18px;font-weight:700;color:var(--sub)}
+.left.ok{color:var(--ok)}
+main{padding:14px}
+h2{font-size:24px;margin:6px 0 12px}
+.hint{color:var(--sub);font-size:17px;margin:-6px 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.grid.g3{grid-template-columns:repeat(3,1fr)}
+.grid.p{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{min-height:64px;border-radius:14px;border:2px solid var(--line);background:var(--panel);padding:10px 12px;font-size:21px;font-weight:700;text-align:center;width:100%}
+.btn.on{border-color:var(--accent);background:#0b3a52;box-shadow:0 0 0 2px var(--accent) inset}
+.btn.none{color:var(--warn);border-style:dashed}
+.btn.none.on{background:#4a3a07;border-color:var(--warn);box-shadow:0 0 0 2px var(--warn) inset}
+.site{border-left-width:12px;text-align:left}
+.person{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;min-height:110px;border-radius:14px;border:2px solid var(--line);background:var(--panel)}
+.person.on{border-color:var(--accent);background:#0b3a52}
+.av{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:27px;font-weight:800;color:#fff;border:3px solid rgba(255,255,255,.25);position:relative}
+.person.on .av::after{content:"✓";position:absolute;right:-6px;bottom:-6px;background:var(--ok);color:#00230d;border-radius:50%;width:26px;height:26px;font-size:18px;display:flex;align-items:center;justify-content:center}
+.person span{font-size:18px;font-weight:700}
+.veh{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;min-height:118px;border-radius:14px;border:2px solid var(--line);background:var(--panel);position:relative}
+.veh svg{width:76px;height:48px;color:var(--accent)}
+.veh span{font-size:18px;font-weight:700;text-align:center}
+.veh .n{position:absolute;top:6px;right:8px;background:var(--accent);color:#00222b;border-radius:12px;padding:0 9px;font-weight:800;font-size:18px}
+.veh.on{border-color:var(--accent);background:#0b3a52}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}
+.card h3{margin:0 0 8px;font-size:21px;display:flex;align-items:center;gap:8px}
+.card h3 svg{width:54px;height:34px;color:var(--accent)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:58px;height:58px;border-radius:12px;border:2px solid var(--line);background:var(--panel2);font-size:30px;font-weight:800}
+.step b{min-width:52px;text-align:center;font-size:28px}
+input[type=text],input[type=date],input[type=time],textarea{font:inherit;font-size:21px;width:100%;padding:12px;border-radius:12px;border:2px solid var(--line);background:#0b1326;color:#fff}
+textarea{min-height:120px}
+input:focus,textarea:focus{outline:none;border-color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chip{min-height:52px;padding:8px 14px;border-radius:26px;border:2px solid var(--line);background:var(--panel2);font-size:19px;font-weight:700}
+.chip.on{border-color:var(--accent);background:#0b3a52}
+.note{background:#2b2306;border:2px solid var(--warn);border-radius:12px;padding:10px 12px;margin:10px 0;font-size:18px}
+.note .row{margin-top:8px}
+.note button{min-height:52px}
+.entry{display:block;width:100%;text-align:left;background:var(--panel);border:2px solid var(--line);border-left-width:12px;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:18px}
+.entry b{font-size:20px}
+.preview{white-space:pre-wrap;background:#0b1326;border:2px solid var(--line);border-radius:12px;padding:12px;font-size:19px}
+footer{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(6,11,23,.95);border-top:1px solid var(--line)}
+footer button{flex:1;min-height:70px;border-radius:16px;font-size:23px;font-weight:800;border:2px solid var(--line);background:var(--panel2)}
+footer .go{background:#0e4f6b;border-color:var(--accent)}
+footer .send{background:#334155;color:#94a3b8;border-color:#475569}
+footer .send.ready{background:linear-gradient(90deg,#00b4d8,#22e3ff);color:#00202a;border-color:#a5f3fc;animation:glow 1.6s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 22px 4px rgba(34,227,255,.7)}}
+@media (prefers-reduced-motion:reduce){footer .send.ready{animation:none}}
+.err{color:#fff;background:#7f1d1d;border:2px solid var(--err);border-radius:12px;padding:10px;margin:10px 0;white-space:pre-wrap;font-size:18px}
+.ask{position:fixed;inset:0;z-index:30;background:rgba(3,7,16,.94);display:none;flex-direction:column;justify-content:center;padding:20px;overflow-y:auto}
+.finish{position:fixed;inset:0;z-index:20;background:rgba(3,7,16,.96);display:none;flex-direction:column;align-items:center;padding:24px;text-align:center;overflow-y:auto}
+.finish>:first-child{margin-top:auto;flex-shrink:0}
+.finish>:last-child{margin-bottom:auto;flex-shrink:0}
+.finish.show{display:flex}
+.finish svg{width:150px;height:150px}
+.finish circle{stroke:var(--ok);stroke-width:6;fill:none;stroke-dasharray:440;stroke-dashoffset:440;animation:draw .7s ease-out forwards}
+.finish path{stroke:var(--ok);stroke-width:9;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:120;stroke-dashoffset:120;animation:draw .45s .6s ease-out forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.finish h2{font-size:30px;margin:18px 0 6px}
+.finish p{font-size:20px;color:var(--sub);margin:4px 0}
+a.btn{color:var(--text);display:block}
+.finish .btn{max-width:420px;margin-top:14px}
+.loading{text-align:center;padding:60px 10px;font-size:22px;color:var(--sub)}
+.small{font-size:16px;color:var(--sub)}
+</style>
+</head>
+<body>
+<div id="appSplash"><img src="icon-512.png" alt=""><b>段取り入力</b><i></i><span>読み込み中…</span></div>
+<div class="bg"><i></i><i></i><i></i></div>
+<header>
+  <div class="top"><h1>段取り入力</h1><span class="mode" id="mode"></span></div>
+  <div class="prog"><b id="bar"></b></div>
+  <div class="left" id="left">読み込み中…</div>
+</header>
+<main id="main"><div class="loading">読み込み中…</div></main>
+<footer id="foot"></footer>
+<div class="finish" id="done">
+  <svg viewBox="0 0 150 150"><circle cx="75" cy="75" r="68"/><path d="M42 78 L66 101 L110 52"/></svg>
+  <h2>送信完了。明日も安全第一で</h2>
+  <p id="doneLine"></p>
+  <p id="doneKy"></p>
+  <a id="kyLink" class="btn" style="display:none;text-decoration:none;line-height:44px" target="_blank">KY の案を見る・直す</a>
+  <button class="btn" onclick="again()">続けてもう 1 件入れる</button>
+</div>
+<script>
+
+// ───────── アプリ版の殻(app/build.mjs が入れる) ─────────
+const API = "https://script.google.com/macros/s/AKfycbxpIDEYjPuIrUQY4yy5pFfgFZslzVvxiP-nSV_D-wgJ0XKq3zH4nP2SB2NUsYocCvp7bQ/exec";
+const APP_VERSION = "2026.1119.1952";
+// 合言葉: リンクの #k=… から取り、端末に覚える。iPhone はホーム画面のアイコンが開いたときの URL(# つき)を覚えるので、# は消さない
+const KEY = (() => {
+  let k = "";
+  try { k = new URLSearchParams(location.hash.replace(/^#/, "")).get("k") || ""; } catch (e) {}
+  try { if (k) localStorage.setItem("dandori_key", k); else k = localStorage.getItem("dandori_key") || ""; } catch (e) {}
+  return k;
+})();
+const APP = (() => {
+  const ua = navigator.userAgent || "";
+  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  return {
+    ios,
+    android: /Android/.test(ua),
+    line: /\bLine\//.test(ua),
+    standalone: (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true,
+    who: "",
+    prompt: null,
+  };
+})();
+// google.script.run の代わり。同じ書き方(withSuccessHandler / withFailureHandler / 関数名)で、doPost に { fn, args } を送る
+window.google = { script: { run: (function () {
+  const mk = (ok, ng) => new Proxy({}, { get: (_, fn) => {
+    if (fn === "withSuccessHandler") return (f) => mk(f, ng);
+    if (fn === "withFailureHandler") return (f) => mk(ok, f);
+    return (...args) => {
+      if (!KEY) return; // まだ登録していない端末。下の appNoKey が案内を出す
+      fetch(API, { method: "POST", body: JSON.stringify({ fn, args }), redirect: "follow" })
+        .then((r) => r.json())
+        .then((j) => {
+          if (fn === "getStart") appSplashOff();
+          if (!j || !j.ok) { if (ng) ng(new Error((j && j.error) || "うまくいきませんでした。もう一度押してください")); return; }
+          if (fn === "getStart" && j.result && j.result.inputters && j.result.inputters.length === 1) { APP.who = j.result.inputters[0]; appWho(); }
+          if (ok) ok(j.result);
+        })
+        .catch(() => { appSplashOff(); if (ng) ng(new Error("通信できませんでした。電波を確かめて、もう一度押してください")); });
+    };
+  } });
+  return mk(null, null);
+})() } };
+function appEsc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
+function appWho() { const e = document.getElementById("appWho"); if (e && APP.who) e.textContent = APP.who + " さんの段取り入力です"; }
+// 起動画面: 開いた瞬間から出ていて(下の SPLASH)、最初の読み込みが済んだら消す。短すぎてちらつかないよう、出してから 0.7 秒は残す
+const APP_T0 = Date.now();
+function appSplashOff() {
+  const e = document.getElementById("appSplash");
+  if (!e || e.dataset.off) return;
+  e.dataset.off = "1";
+  setTimeout(() => { e.classList.add("off"); setTimeout(() => e.remove(), 450); }, Math.max(0, 700 - (Date.now() - APP_T0)));
+}
+// 登録していない端末: リンクから開いてもらう。開けないときはリンクを貼って決める
+function appNoKey() {
+  appSplashOff();
+  document.getElementById("left").textContent = "まだ登録されていません";
+  document.getElementById("foot").innerHTML = "";
+  document.getElementById("main").innerHTML =
+    '<h2>はじめに</h2><div class="note"><b>LINE で届いた「あなた専用のリンク」を押して開いてください。</b><br>それだけで登録できます。名前や合言葉を入れる所はありません</div>' +
+    '<p style="margin-top:18px">リンクを押しても開けないとき</p><p class="hint">LINE のリンクを長押しして「コピー」し、下に貼って「決める」を押します</p>' +
+    '<input type="text" id="appLink" placeholder="ここにリンクを貼る" autocomplete="off"><button class="btn" style="margin-top:10px" onclick="appUseLink()">決める</button>' +
+    '<p class="small" style="margin-top:18px">分からないときは工事部に聞いてください(版 ' + appEsc(APP_VERSION) + ')</p>';
+}
+function appUseLink() {
+  const t = (document.getElementById("appLink").value || "").trim();
+  const m = /[#?&]k=([^&#\s]+)/.exec(t);
+  const k = m ? decodeURIComponent(m[1]) : /^[A-Za-z0-9_-]{6,}$/.test(t) ? t : "";
+  if (!k) { document.getElementById("main").insertAdjacentHTML("afterbegin", '<div class="err">リンクを読めませんでした。LINE で届いたリンクをそのまま貼ってください</div>'); return; }
+  try { localStorage.setItem("dandori_key", k); } catch (e) {}
+  location.hash = "k=" + encodeURIComponent(k);
+  location.reload();
+}
+// ホーム画面に置く案内。機種を見分けて、その機種の手順だけを出す。置かなくても使える
+const APP_SHARE = '<svg viewBox="0 0 24 24" width="30" height="30" style="vertical-align:-8px" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>';
+function appGuideSteps() {
+  if (APP.line) {
+    return '<p><b>LINE の中の画面では、ホーム画面に置けません。</b></p>' + (APP.ios
+      ? '<ol><li>右下の <b>コンパスの印</b>(または「…」)を押す</li><li><b>「Safari で開く」</b>を押す</li><li>Safari で、この案内がもう一度出ます</li></ol>'
+      : '<ol><li>右上の <b>︙</b> を押す</li><li><b>「他のアプリで開く」</b>(または「ブラウザで開く」)を押す</li><li>Chrome で、この案内がもう一度出ます</li></ol>');
+  }
+  if (APP.ios) {
+    return '<ol><li>画面の下(または上)の ' + APP_SHARE + ' を押す</li><li>出てきた一覧を上に送って <b>「ホーム画面に追加」</b>を押す</li><li>右上の <b>「追加」</b>を押す</li></ol><p class="small">ホーム画面に「段取り」のアイコンができます。次からはそれを押すだけです</p>';
+  }
+  if (APP.prompt) {
+    return '<button class="btn on" onclick="appInstall()">アプリとして入れる</button><p class="small" style="margin-top:10px">押して「インストール」を選ぶと、ホーム画面に「段取り」のアイコンができます</p>';
+  }
+  return '<ol><li>右上の <b>︙</b> を押す</li><li><b>「ホーム画面に追加」</b>(または「アプリをインストール」)を押す</li><li><b>「追加」</b>(または「インストール」)を押す</li></ol><p class="small">ホーム画面に「段取り」のアイコンができます。次からはそれを押すだけです</p>';
+}
+function appGuide(force) {
+  if (!KEY || APP.standalone || !(APP.ios || APP.android)) return;
+  let until = 0;
+  try { until = Number(localStorage.getItem("dandori_guide_until") || 0); } catch (e) {}
+  if (!force && Date.now() < until) return;
+  let o = document.getElementById("appGuide");
+  if (!o) { o = document.createElement("div"); o.id = "appGuide"; o.className = "ask"; document.body.appendChild(o); }
+  o.innerHTML = '<div class="card appg"><h2 style="margin-top:0">ホーム画面に置くと、アプリのように使えます</h2><p class="hint" id="appWho" style="margin:0 0 10px"></p>' + appGuideSteps() +
+    '<button class="btn none" style="margin-top:14px" onclick="appGuideClose(3)">あとで(このまま使う)</button><button class="btn none" style="margin-top:8px" onclick="appGuideClose(3650)">もう出さない</button></div>';
+  o.style.display = "flex";
+  appWho();
+}
+function appGuideClose(days) {
+  try { localStorage.setItem("dandori_guide_until", String(Date.now() + days * 86400000)); } catch (e) {}
+  const o = document.getElementById("appGuide");
+  if (o) { o.style.display = "none"; o.innerHTML = ""; }
+}
+function appInstall() {
+  const p = APP.prompt;
+  if (!p) return;
+  APP.prompt = null;
+  p.prompt();
+  if (p.userChoice) p.userChoice.then((c) => { if (c && c.outcome === "accepted") appGuideClose(3650); else appGuide(true); });
+}
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); APP.prompt = e; if (document.getElementById("appGuide") && document.getElementById("appGuide").style.display === "flex") appGuide(true); });
+window.addEventListener("appinstalled", () => appGuideClose(3650));
+// 新しい版: 開いたとき・画面に戻ってきたときに version.json を見て、違えば上に知らせを出す(押すと読み直す。打っている途中で勝手には読み直さない)
+function appCheckVersion() {
+  fetch("version.json?t=" + Date.now(), { cache: "no-store" })
+    .then((r) => r.json())
+    .then((v) => {
+      if (!v || !v.version || v.version === APP_VERSION || document.getElementById("appNew")) return;
+      const d = document.createElement("div");
+      d.id = "appNew";
+      d.innerHTML = '<button onclick="location.reload()">新しい版があります。ここを押して更新</button>';
+      document.body.appendChild(d);
+    })
+    .catch(() => {});
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) appCheckVersion(); });
+window.addEventListener("load", () => {
+  appCheckVersion();
+  // Android は manifest でアプリとして入る。iPhone は manifest を付けない(付けると、合言葉の付いていない URL でホーム画面に置かれる)
+  if (!APP.ios) { const l = document.createElement("link"); l.rel = "manifest"; l.href = "manifest.webmanifest"; document.head.appendChild(l); }
+  if ("serviceWorker" in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/.test(location.href)) navigator.serviceWorker.register("sw.js").catch(() => {});
+  if (!KEY) appNoKey(); else setTimeout(() => appGuide(false), 600);
+});
+// ───────── ここまで殻。下は Apps Script の画面と同じ ─────────
+
+const STEPS = [
+  { id: "start", title: "入力者と対象日" },
+  { id: "site", title: "現場" },
+  { id: "work", title: "作業内容" },
+  { id: "people", title: "社内人員" },
+  { id: "crews", title: "協力会社・人数" },
+  { id: "vehicles", title: "車両・重機" },
+  { id: "drivers", title: "運転手" },
+  { id: "meet", title: "集合場所・時刻と備考" },
+  { id: "confirm", title: "確認して送信" },
+];
+const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
+// 現場の代わりに選ぶ「休んでいる人」の札。人員だけを入れる(作業・協力会社・車両・集合・KY は飛ばす)
+const REST = ["有給", "休み"];
+function isRest(f){return REST.indexOf(f.site)>=0}
+const REST_SKIP = ["work","crews","vehicles","drivers","meet"];
+const COLORS = ["#e11d48","#2563eb","#16a34a","#d97706","#7c3aed","#0891b2","#db2777","#65a30d","#ea580c","#4f46e5","#0d9488","#b91c1c","#9333ea","#ca8a04"];
+const ICONS = {
+  dump: '<path d="M8 12q5-6 11-3q6-5 12-1q6-2 9 4" stroke-width="1.6"/><path d="M3 12H43V8.5h9V11h-5.5V26H3z" fill="currentColor" fill-opacity=".25"/><path d="M3 15.5h40" stroke-width="1.4"/><path d="M13 15.5V26M23 15.5V26M33 15.5V26" stroke-width="1.2"/><path d="M49 30V14h8a3 3 0 0 1 3 3v13zM5 29.5h44"/><path d="M53 17h5.5v6H53z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><path d="M28 26.5l9 3" stroke-width="1.6"/><circle cx="11" cy="33" r="4"/><circle cx="11" cy="33" r="1" fill="currentColor" stroke="none"/><circle cx="21" cy="33" r="4"/><circle cx="21" cy="33" r="1" fill="currentColor" stroke="none"/><circle cx="55" cy="33" r="4"/><circle cx="55" cy="33" r="1" fill="currentColor" stroke="none"/>',
+  carrier: '<path d="M4 23h39v4H2z" fill="currentColor" fill-opacity=".25"/><path d="M4.5 23V10M8 23V10M4.5 13h3.500M4.5 17h3.5" stroke-width="1.6"/><path d="M44 27V13" stroke-width="2.2"/><path d="M47 30V15h8l6 7v8zM6 30h41"/><path d="M50.5 18h4l3 4h-7z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><circle cx="12" cy="33" r="4"/><circle cx="12" cy="33" r="1" fill="currentColor" stroke="none"/><circle cx="22" cy="33" r="4"/><circle cx="22" cy="33" r="1" fill="currentColor" stroke="none"/><circle cx="54" cy="33" r="4"/><circle cx="54" cy="33" r="1" fill="currentColor" stroke="none"/>',
+  selfunic: '<path d="M4 23h37v4H2z" fill="currentColor" fill-opacity=".25"/><path d="M47 30V15h8l6 7v8zM6 30h41"/><path d="M50.5 18h4l3 4h-7z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><path d="M44 27V8L19 11" stroke-width="3.2"/><path d="M19 11v5M19 16a1.8 1.8 0 1 0 1.8 1.8" stroke-width="1.6"/><path d="M38 27v8M36 35.5h4" stroke-width="2"/><circle cx="12" cy="33" r="4"/><circle cx="12" cy="33" r="1" fill="currentColor" stroke="none"/><circle cx="22" cy="33" r="4"/><circle cx="22" cy="33" r="1" fill="currentColor" stroke="none"/><circle cx="54" cy="33" r="4"/><circle cx="54" cy="33" r="1" fill="currentColor" stroke="none"/>',
+  trailer: '<path d="M2 21h11l3 5h17l3-6h12v3H38l-3 6H15l-3-5H2z" fill="currentColor" fill-opacity=".25"/><path d="M49 30V11h7l6 8v11zM39 30h10"/><path d="M52.5 14h3l3.5 5h-6.5z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><path d="M24 29v5M22 34.5h4" stroke-width="2"/><circle cx="5" cy="30.5" r="3.2"/><circle cx="5" cy="30.5" r="1" fill="currentColor" stroke="none"/><circle cx="12.5" cy="30.5" r="3.2"/><circle cx="12.5" cy="30.5" r="1" fill="currentColor" stroke="none"/><circle cx="43" cy="33" r="4"/><circle cx="43" cy="33" r="1" fill="currentColor" stroke="none"/><circle cx="56" cy="33" r="4"/><circle cx="56" cy="33" r="1" fill="currentColor" stroke="none"/>',
+  chip: '<path d="M2 3h45v23H2z" fill="currentColor" fill-opacity=".25"/><path d="M2 7h45" stroke-width="1.4"/><path d="M9.5 7v19M17 7v19M24.5 7v19M32 7v19M39.5 7v19" stroke-width="1.2"/><path d="M49 30V13h10a2 2 0 0 1 2 2v15zM4 29.5h45"/><path d="M53 16h5.5v6H53z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><path d="M29 29.5v3h8v-3" stroke-width="1.6"/><circle cx="10" cy="33" r="4"/><circle cx="10" cy="33" r="1" fill="currentColor" stroke="none"/><circle cx="20" cy="33" r="4"/><circle cx="20" cy="33" r="1" fill="currentColor" stroke="none"/><circle cx="55" cy="33" r="4"/><circle cx="55" cy="33" r="1" fill="currentColor" stroke="none"/>',
+  collector: '<path d="M3 6h19v20H3z" fill="currentColor" fill-opacity=".25"/><path d="M3 11h19M3 16h19M3 21h19M8 6v20M13 6v20M18 6v20" stroke-width="1"/><path d="M22 9C34 3 47 7 50 19" stroke-width="3"/><path d="M42 27a10 10 0 0 1 20 0"/><circle cx="52" cy="28" r="2" stroke-width="1.6"/><path d="M52 26v-4.5M54 28h4.5M52 30v4.5M50 28h-4.5M53.4 26.6l3.2-3.2M53.4 29.4l3.2 3.2M50.6 29.4l-3.2 3.2M50.6 26.6l-3.2-3.2" stroke-width="1.5"/><path d="M25 26v-7h6M37 15l-3 8M34.5 14l5 2" stroke-width="2"/><path d="M12 26.5h31"/><circle cx="13" cy="32" r="4.5"/><circle cx="13" cy="32" r="1" fill="currentColor" stroke="none"/><circle cx="36" cy="33" r="3.5"/><circle cx="36" cy="33" r="1" fill="currentColor" stroke="none"/>',
+  flail: '<rect x="12" y="27.5" width="33" height="9" rx="4.5"/><circle cx="17.5" cy="32" r="1.6" stroke-width="1.6"/><circle cx="28.5" cy="32" r="1.6" stroke-width="1.6"/><circle cx="39.5" cy="32" r="1.6" stroke-width="1.6"/><path d="M46 21h9a7 7 0 0 1 7 7v7H46z" fill="currentColor" fill-opacity=".25"/><circle cx="54.5" cy="29.5" r="2.4" stroke-width="1.6"/><path d="M54.5 27.1v-2.4M56.9 29.5h2.4M54.5 31.9v2.4M52.1 29.5h-2.4" stroke-width="1.5"/><path d="M24 27.5V17h15l5 5v5.5" fill="currentColor" fill-opacity=".25"/><path d="M36 17v-4.5" stroke-width="2"/><path d="M14 27.5V5h11" stroke-width="2.2"/><path d="M17.5 27V16M17.5 22h6M29 17l-2.5-5.5" stroke-width="2"/>',
+  jinriki: '<circle cx="32" cy="7" r="4"/><path d="M24 15h16l-4 13h-8z" fill="currentColor" fill-opacity=".25"/><path d="M24 16l-8 2-1-9M40 16l8 2 1-9"/><path d="M17.5 17a3.2 3.2 0 0 1 5.5-2M46.5 17a3.2 3.2 0 0 0-5.5-2" stroke-width="1.6"/><circle cx="15" cy="7.5" r="1.9" fill="currentColor"/><circle cx="49" cy="7.5" r="1.9" fill="currentColor"/><path d="M29 28l-4 10M35 28l4 10"/><path d="M30.5 6.5h.1M33.5 6.5h.1" stroke-width="1.2"/><path d="M54 4l2.5-2M55.5 8.5h3.5M10 4L7.5 2" stroke-width="1.5"/><path d="M58 38V19M56 19h4" stroke-width="2"/><path d="M56 30h4v5l-2 3-2-3z" fill="currentColor" stroke-width="1.4"/>',
+  excavator: '<rect x="3" y="29" width="35" height="8" rx="4"/><circle cx="8" cy="33" r="1.6" stroke-width="1.6"/><circle cx="33" cy="33" r="1.6" stroke-width="1.6"/><path d="M14 33h13" stroke-width="1.4"/><path d="M15 29v-2.5h11V29" stroke-width="1.6"/><path d="M5 26.5V18h14v-6.5h10l4 6v9z" fill="currentColor" fill-opacity=".25"/><path d="M22 14.5h6l2.5 4V22H22z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><path d="M9 21.5h7" stroke-width="1.4"/><path d="M32 24L42 6l11 5" stroke-width="3.6"/><path d="M53 11l3 13" stroke-width="2.8"/><path d="M35 25l4-11M44 4.5l8 3" stroke-width="1.5"/><path d="M53 24h6l2 5-5 5-4-1.5c2.5-1.5 2.5-5 1-8.500z" fill="currentColor" stroke-width="1.6"/>',
+  crusher: '<rect x="6" y="29" width="36" height="8" rx="4"/><circle cx="11" cy="33" r="1.6" stroke-width="1.6"/><circle cx="37" cy="33" r="1.6" stroke-width="1.6"/><path d="M17 33h14" stroke-width="1.4"/><path d="M8 27v-8h31v8z" fill="currentColor" fill-opacity=".25"/><path d="M11 7q4-4 7-1q4-3 8 1" stroke-width="1.6"/><path d="M6 7h24l-3 12H10z" fill="currentColor" fill-opacity=".25"/><path d="M30 19v-7h8v7" stroke-width="2"/><path d="M37 26L60 11" stroke-width="3.4"/><circle cx="60.5" cy="17" r="1" fill="currentColor" stroke-width="1"/><circle cx="58.5" cy="22" r="1" fill="currentColor" stroke-width="1"/><path d="M52 37l5-8 5 8z" fill="currentColor" fill-opacity=".3" stroke-width="1.6"/>',
+  crane: '<path d="M6 24h47l5 3v3H4v-3z" fill="currentColor" fill-opacity=".25"/><path d="M5 24v-6h9v6" fill="currentColor" fill-opacity=".25"/><path d="M25 24v-8h9l3 4v4"/><path d="M27.5 18h5.500l2 3h-7.500z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><path d="M9 17L60 3" stroke-width="3.8"/><path d="M16 20l8-7" stroke-width="1.6"/><path d="M59 3.500v12M59 15.500a1.9 1.9 0 1 0 1.9 1.9" stroke-width="1.6"/><path d="M6 30v6M4 36.500h4M56 30v6M54 36.500h4" stroke-width="2"/><circle cx="18" cy="32" r="5"/><circle cx="18" cy="32" r="1" fill="currentColor" stroke="none"/><circle cx="44" cy="32" r="5"/><circle cx="44" cy="32" r="1" fill="currentColor" stroke="none"/>',
+  unic: '<path d="M4 20h34v7H4z" fill="currentColor" fill-opacity=".25"/><path d="M15 20v7M26 20v7" stroke-width="1.2"/><path d="M43 27V8L19 11" stroke-width="3.2"/><path d="M19 11v5M19 16a1.8 1.8 0 1 0 1.8 1.8" stroke-width="1.6"/><path d="M40 27v8M38 35.5h4" stroke-width="2"/><path d="M47 30V15h8l6 7v8zM6 30h41"/><path d="M50.5 18h4l3 4h-7z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><circle cx="14" cy="33" r="4"/><circle cx="14" cy="33" r="1" fill="currentColor" stroke="none"/><circle cx="54" cy="33" r="4"/><circle cx="54" cy="33" r="1" fill="currentColor" stroke="none"/>',
+  water: '<rect x="3" y="10" width="42" height="17" rx="7" fill="currentColor" fill-opacity=".25"/><path d="M16 10v17M32 10v17" stroke-width="1.2"/><path d="M21 10V7.500h7V10" stroke-width="1.6"/><path d="M49 30V14h8a3 3 0 0 1 3 3v13zM5 29.5h44"/><path d="M53 17h5.5v6H53z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><path d="M3.5 28v2M1.8 31.500v2.500M5.2 31.500v2.5" stroke-width="1.4"/><circle cx="13" cy="33" r="4"/><circle cx="13" cy="33" r="1" fill="currentColor" stroke="none"/><circle cx="55" cy="33" r="4"/><circle cx="55" cy="33" r="1" fill="currentColor" stroke="none"/>',
+  truck: '<path d="M4 17h40v10H4z" fill="currentColor" fill-opacity=".25"/><path d="M4 22h40" stroke-width="1.4"/><path d="M17 17v10M31 17v10" stroke-width="1.2"/><path d="M45.5 27V12" stroke-width="2.2"/><path d="M49 30V14h8a3 3 0 0 1 3 3v13zM5 29.5h44"/><path d="M53 17h5.5v6H53z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><circle cx="13" cy="33" r="4"/><circle cx="13" cy="33" r="1" fill="currentColor" stroke="none"/><circle cx="55" cy="33" r="4"/><circle cx="55" cy="33" r="1" fill="currentColor" stroke="none"/>',
+  car: '<path d="M4 30v-8l5-1.5 6-8.500h21l9 8.5 12 2a3 3 0 0 1 3 3V30z" fill="currentColor" fill-opacity=".25"/><path d="M17 14.500h8V20.500H12.800z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><path d="M28 14.500h7l6.5 6H28z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><path d="M29.5 24h3" stroke-width="1.4"/><circle cx="16" cy="31" r="4"/><circle cx="16" cy="31" r="1" fill="currentColor" stroke="none"/><circle cx="48" cy="31" r="4"/><circle cx="48" cy="31" r="1" fill="currentColor" stroke="none"/>',
+  roller: '<path d="M21 26V16h24v10z" fill="currentColor" fill-opacity=".25"/><path d="M25 16V5.500h17V16M22 5.500h23" stroke-width="2"/><path d="M30 16v-5h4M39 16l-2-5.5" stroke-width="1.6"/><path d="M13 30l8-6M51 30l-6-6" stroke-width="2"/><circle cx="13" cy="30" r="7.5"/><circle cx="13" cy="30" r="2" stroke-width="1.6"/><circle cx="51" cy="30" r="7.5"/><circle cx="51" cy="30" r="2" stroke-width="1.6"/>',
+  crawler: '<rect x="4" y="28" width="50" height="9" rx="4.5"/><circle cx="10" cy="32.5" r="1.6" stroke-width="1.6"/><circle cx="29" cy="32.5" r="1.6" stroke-width="1.6"/><circle cx="48" cy="32.5" r="1.6" stroke-width="1.6"/><path d="M9 10q5-5 10-2q5-4 11 2" stroke-width="1.6"/><path d="M3 10h33l-3 15H7z" fill="currentColor" fill-opacity=".25"/><path d="M14 10l1.5 15M25 10l-1 15" stroke-width="1.2"/><path d="M39 26V12h10l4 5v9z" fill="currentColor" fill-opacity=".25"/><path d="M42 14.500h6l2.5 3.500V21H42z" fill="currentColor" fill-opacity=".3" stroke-width="1.4"/><path d="M6 26h48" stroke-width="1.6"/>',
+  other: '<rect x="12" y="14" width="40" height="20" rx="3" fill="currentColor" fill-opacity=".25"/><path d="M25 14V9h14v5" stroke-width="2"/><path d="M12 22h40" stroke-width="1.4"/><path d="M29 20.500h6v4h-6z" stroke-width="1.6"/>',
+};
+let D = null;           // getStart の結果
+let F = null;           // 入力中の段取り
+let step = 0;
+let replaceRef = "";
+let original = null;    // 直す前の内容
+let prefillNote = "";
+let sending = false;
+let inputter = "";
+let showAllInputters = false;
+let cart = [];          // 置いておいた段取り(まとめて送る)
+let review = null;      // まとめて送る前の文面の確認(送る段取りの一覧)
+let editMode = "";      // "site" | "rename" | "pos" | "veh" | "moto" | "crew" | "crewDel" | "person" | "personDel": 一覧を直している間
+let posTarget = "";     // 場所を決めている現場
+let posMap = null;      // 場所の札の地図(Leaflet)
+let posMark = null;     // 地図の上の印
+let posPick = null;     // 地図で押した場所 [緯度, 経度]
+let posKind = "";       // 今の地図: "g" = Google、"l" = 国土地理院(Leaflet)
+let gmFailed = false;   // Google の地図が使えなかった(鍵が通らないなど)
+let gmCbs = [];         // Google の地図の読み込み待ち
+let posCands = [];      // 施設名で探した候補 [{name, addr, lat, lon}]
+// 地図の部品(Leaflet 1.9.4)。場所の札を開いたときだけ読み込む。integrity で中身を照合する
+const LF = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/";
+const LF_CSS = "sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==";
+const LF_JS = "sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g==";
+const GSI = "https://cyberjapandata.gsi.go.jp/xyz/";
+let newVehKind = "";
+let newPersonCo = "";   // 足す社員の会社
+const CART_MAX = 15;
+
+function el(id){return document.getElementById(id)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function color(name){let h=0;for(const c of String(name))h=(h*31+c.charCodeAt(0))>>>0;return COLORS[h%COLORS.length]}
+function icon(kind){return '<svg viewBox="0 0 64 40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round">'+(ICONS[kind]||ICONS.other)+'</svg>'}
+function veh(name){return D.vehicles.find(v=>v.name===name)||{name,kind:"重機",icon:"other"}}
+function site(name){return D.sites.find(s=>s.name===name)}
+function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function addDays(day,n){const p=day.split("-").map(Number);const d=new Date(p[0],p[1]-1,p[2]+n);return iso(d)}
+function label(day){const p=day.split("-").map(Number);if(p.length<3)return day;return p[1]+"/"+p[2]+"("+WEEK[new Date(p[0],p[1]-1,p[2]).getDay()]+")"}
+function rid(){return "D"+Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+function blank(){return {requestId:rid(),inputter,company:allowedCo(inputter)[0],day:addDays(D.today,1),site:"",work:"",people:[],peopleNone:false,crews:[],crewsNone:false,vehicles:[],vehiclesNone:false,meet:"",note:"",ky:true}}
+// フォレスト総建・伊賀林業の段取りでは、その会社の人員と現場だけを出す(ネクサスの段取りは絞らない)
+function personCo(n){const p=D.people.find(x=>x.name===n);return p&&p.company?p.company:"ネクサス"}
+function okEntry(e){return (e.company||"ネクサス")===F.company}
+// フォレスト総建と伊賀林業の人は、どちらの段取りでも選べる(ネクサスの人は選べない)
+// 同じ日・同じ現場・同じ会社の段取りがもうあるか(新しく入れているときだけ)。あれば、送る前に新規か予定変更かを選ばせる
+function sameFor(f){return D.entries.filter(e=>(e.company||"ネクサス")===(f.company||"ネクサス")&&e.day===f.day&&(e.site===f.site||siteName(e.site)===siteName(f.site)&&siteName(f.site)))}
+function sameEntries(){return !replaceRef&&F&&F.site?sameFor(F):[]}
+// 画面を開いたあとに、ほかの人や LINE から同じ日・同じ現場の段取りが入ることがある。
+// 送る前の確認の画面で最新を読み直し、サーバーに止められたときも読み直して、新規か予定変更かを選べるようにする(2026/11/19)
+let needMsg = "";       // サーバーに「新規か予定変更かを選んで」と止められたときの文
+function freshen(done){google.script.run.withSuccessHandler(d=>{D=d;if(done)done()}).withFailureHandler(()=>{}).getStart(KEY)}
+// まとめて送る中で、台帳に同じ日・同じ現場・同じ会社の段取りがあるのに、まだ「新規」を選んでいないもの
+function reviewClash(){return review?review.filter(f=>!f.asNew&&sameFor(f).length):[]}
+function reviewNew(i){review[i].asNew=true;refresh()}
+function reviewAllNew(){review.forEach(f=>{f.asNew=true});needMsg="";refresh()}
+function reviewDrop(i){review.splice(i,1);if(!review.length)review=null;render()}
+function sendFailed(e,many){
+  sending=false;
+  const need=/予定変更か新規か/.test(e.message);
+  needMsg=need?e.message:"";
+  refresh();
+  el("main").insertAdjacentHTML("afterbegin",'<div class="err">送信できませんでした'+(many?"(1 件も送っていません)":"")+':\n'+esc(e.message)+(need?"\n\n最新の段取りを読み込んでいます…":"")+'</div>');window.scrollTo(0,0);
+  if(need)freshen(()=>{refresh();el("main").insertAdjacentHTML("afterbegin",'<div class="note">この画面を開いたあとに、同じ日・同じ現場の段取りが入っていました。下で「新規」か「予定変更」を選ぶと送れます</div>');window.scrollTo(0,0)});
+}
+// 今入れた内容を、前の段取りの予定変更にする(前の分は「変更前」になり、LINE には変わった所だけ流れる)
+function asChange(i){
+  const e=D.entries[i];
+  original=Object.assign(blank(),JSON.parse(JSON.stringify(e.form)),{day:e.form.day||e.day,site:e.form.site||e.site,company:e.company||F.company});
+  replaceRef=e.ref;F.asNew=false;refresh();
+}
+function okPerson(n){return F.company==="ネクサス"||personCo(n)!=="ネクサス"}
+// フォレスト総建・伊賀林業では、ネクサスと一緒の現場も出さない(その会社たちだけの現場に限る)
+function okSite(s){if(F.company==="ネクサス")return true;const c=String(s.company||"ネクサス").split(/[,、\s]+/);return c.indexOf(F.company)>=0&&c.indexOf("ネクサス")<0}
+function setCompany(c){
+  F.company=c;
+  F.people=F.people.filter(okPerson);
+  F.vehicles.forEach(v=>{if(v.driver&&!okPerson(v.driver))v.driver=""});
+  const s=site(F.site);if(s&&!okSite(s)){F.site="";prefillNote=""}
+  refresh();
+}
+// 入力者ごとに流せる会社(マスタの「入力できる会社」。無ければネクサスだけ)
+function allowedCo(n){return (D&&D.companies&&D.companies[n]&&D.companies[n].length)?D.companies[n]:["ネクサス"]}
+
+function load(){
+  google.script.run.withSuccessHandler(d=>{
+    D=d;
+    if(!inputter&&D.inputters.length===1)inputter=D.inputters[0];
+    // 入力者を選べる URL では、この端末で前に選んだ人を覚えておく(一覧が長いので毎回探さなくてよいように)
+    if(!inputter){try{const last=localStorage.getItem("dandori_inputter");if(last&&D.inputters.indexOf(last)>=0)inputter=last}catch(e){}}
+    F=blank();step=0;replaceRef="";original=null;prefillNote="";
+    render();
+  }).withFailureHandler(e=>{el("main").innerHTML='<div class="err">'+esc(e.message)+'</div>';el("left").textContent="開けませんでした"}).getStart(KEY);
+}
+
+function needDrivers(){return F.vehicles.some(v=>veh(v.name).kind==="車両")}
+function missing(){
+  const m=[];
+  if(!F.inputter)m.push("入力者");
+  if(!F.day)m.push("対象日");
+  if(!F.site.trim())m.push("現場");
+  if(!F.work.trim())m.push("作業内容");
+  if(!F.peopleNone&&!F.people.length)m.push("社内人員");
+  if(!F.vehiclesNone&&!F.vehicles.length)m.push("車両・重機");
+  if(F.vehicles.some(v=>veh(v.name).kind==="車両"&&!v.driver))m.push("運転手");
+  if(F.crews.some(c=>!(c.count>=1)))m.push("協力会社の人数");
+  if(sameEntries().length&&!F.asNew)m.push("新規か予定変更か");
+  return m;
+}
+const TOTAL=7;
+function progress(){
+  const m=missing();
+  el("bar").style.width=Math.round((TOTAL-Math.min(m.length,TOTAL))/TOTAL*100)+"%";
+  const l=el("left");
+  if(m.length){l.textContent="あと "+m.length+" 項目(" + m.join("・")+")";l.className="left"}
+  else{l.textContent="全部そろいました。確認して送信できます";l.className="left ok"}
+  el("mode").textContent=replaceRef?"変更":"";
+  return m;
+}
+
+function render(){
+  if(review){
+    el("main").innerHTML=vReview();progress();
+    const clash=reviewClash().length;
+    el("foot").innerHTML='<button onclick="review=null;render()">戻って直す</button><button class="send'+(clash?"":" ready")+'" onclick="sendMany(review)" '+(sending||clash?"disabled":"")+'>'+(sending?"送信中…":"この文面で送信("+review.length+" 件)")+'</button>';
+    window.scrollTo(0,0);return;
+  }
+  const s=STEPS[step];
+  let h='<h2>'+(step+1)+'. '+s.title+'</h2>';
+  if(cart.length&&!replaceRef)h+=vCart(s.id==="confirm");
+  h+=({start:vStart,site:vSite,work:vWork,people:vPeople,crews:vCrews,vehicles:vVehicles,drivers:vDrivers,meet:vMeet,confirm:vConfirm})[s.id]();
+  el("main").innerHTML=h;
+  initPosMap();
+  const m=progress();
+  const f=[];
+  if(step>0)f.push('<button onclick="go(-1)">戻る</button>');
+  if(s.id==="confirm")f.push('<button class="send'+(m.length?"":" ready")+'" id="sendBtn" onclick="send()" '+(m.length||sending?"disabled":"")+'>'+(sending?"送信中…":replaceRef?"変更を送信":cart.length?"文面を確認して送信("+(cart.length+1)+" 件)":"送信")+'</button>');
+  else f.push('<button class="go" onclick="go(1)">次へ</button>');
+  el("foot").innerHTML=f.join("");
+  window.scrollTo(0,0);
+}
+function refresh(){const y=window.scrollY;render();window.scrollTo(0,y)}
+function go(n){
+  editMode="";
+  step+=n;
+  while(n&&STEPS[step]&&(isRest(F)?REST_SKIP.indexOf(STEPS[step].id)>=0:STEPS[step].id==="drivers"&&!F.vehicles.length))step+=n;
+  step=Math.max(0,Math.min(STEPS.length-1,step));
+  render();
+  // 確認の画面に来たら最新の段取りを読み直す(開いたあとに入った同じ現場の段取りを、送る前に選べるように)
+  if(n>0&&STEPS[step].id==="confirm")freshen(()=>{if(!review&&!sending&&STEPS[step].id==="confirm")refresh()});
+}
+
+// 1. 入力者と対象日・入力済みの段取り
+function vStart(){
+  const few=D.inputters.length<=6||!F.inputter||showAllInputters;
+  let h=few?'<div class="grid">'+D.inputters.map(n=>'<button class="btn'+(F.inputter===n?" on":"")+'" onclick="setInputter(\''+esc(n)+'\')">'+esc(n)+'</button>').join("")+'</div>'
+    :'<div class="row"><button class="btn on" style="width:auto;flex:1">'+esc(F.inputter)+'</button><button class="chip" onclick="showAllInputters=true;refresh()">入力者を変える</button></div>';
+  const cos=allowedCo(F.inputter);
+  if(cos.length>1)h+='<h2 style="margin-top:18px">どの会社の段取りか</h2><div class="grid">'+cos.map(c=>'<button class="btn'+(F.company===c?" on":"")+'" onclick="setCompany(\''+esc(c)+'\')">'+esc(c)+'</button>').join("")+'</div><p class="small">選んだ会社の人員・現場だけが出ます。LINE もこの会社に流れます</p>';
+  h+='<h2 style="margin-top:18px">対象日</h2><div class="grid g3">';
+  [["今日",0],["明日",1],["あさって",2]].forEach(([t,n])=>{const d=addDays(D.today,n);h+='<button class="btn'+(F.day===d?" on":"")+'" onclick="setDay(\''+d+'\')">'+t+'<br><span class="small">'+label(d)+'</span></button>'});
+  h+='</div><div style="margin-top:10px"><input type="date" value="'+esc(F.day)+'" onchange="setDay(this.value)"></div>';
+  if(replaceRef)h+='<div class="note">「'+esc(original.site)+' '+label(original.day)+'」を直しています。<div class="row"><button class="chip" onclick="cancelChange()">直すのをやめて新しく入れる</button></div></div>';
+  h+='<h2 style="margin-top:22px">入力済みの段取り(今日から)</h2><p class="hint">押すと中身が入った状態で開き、直して送信できます</p>';
+  // 選んだ会社の段取りだけを出す(LINE の自由文の行と、会社の印が無い前の行はネクサス)
+  if(!D.entries.some(okEntry))h+='<p class="small">まだありません</p>';
+  D.entries.forEach((e,i)=>{if(!okEntry(e))return;const c=(site(siteName(e.site))||{}).color||color(e.site);h+='<button class="entry" style="border-left-color:'+c+'" onclick="startChange('+i+')"><b>'+label(e.day)+' '+esc(e.site)+'</b><br>'+esc(String(e.work||"").slice(0,40))+'<br><span class="small">'+esc(e.by)+' '+esc(e.posted)+(e.fromApp?"":"(LINE の自由文から)")+'</span></button>'});
+  return h;
+}
+function siteName(t){let best="";D.sites.forEach(s=>{if(String(t).indexOf(s.name)===0&&s.name.length>best.length)best=s.name});return best}
+function setInputter(n){inputter=n;F.inputter=n;if(allowedCo(n).indexOf(F.company)<0)F.company=allowedCo(n)[0];showAllInputters=false;try{localStorage.setItem("dandori_inputter",n)}catch(e){}refresh()}
+function setDay(d){if(d){F.day=d;refresh()}}
+function startChange(i){
+  const e=D.entries[i];
+  const f=JSON.parse(JSON.stringify(e.form));
+  F=Object.assign(blank(),f,{requestId:rid(),inputter:inputter||F.inputter,day:e.form.day||e.day,site:f.site||e.site});
+  replaceRef=e.ref;original=JSON.parse(JSON.stringify(F));prefillNote="";step=1;render();
+}
+function cancelChange(){F=blank();replaceRef="";original=null;step=0;render()}
+
+// 2. 現場
+function vSite(){
+  let h='<p>休んでいる人を入れる</p><div class="grid">'+REST.map(n=>'<button class="btn'+(F.site===n?" on":"")+'" onclick="setSite(\''+n+'\')">'+n+'</button>').join("")+'</div><p class="small">有給・休みを選ぶと、次は人を選ぶだけです(作業・車両・集合・KY は要りません)</p>';
+  h+='<p class="hint" style="margin-top:16px">よく使う現場が上に並んでいます</p><div class="grid">';
+  D.sites.filter(okSite).forEach(s=>{h+='<button class="btn site'+(F.site===s.name?" on":"")+(editMode?" warn":"")+'" style="border-left-color:'+s.color+'" onclick="'+(editMode==="site"?"endSite":editMode==="rename"?"renameSite":editMode==="pos"?"posSite":editMode==="moto"?"motoSite":"setSite")+'(\''+esc(s.name)+'\')">'+(editMode==="site"?"× ":editMode==="rename"?"✎ ":editMode==="pos"?(s.lat!=null&&s.lon!=null?"📍 ":"？ "):editMode==="moto"?(s.motouke||s.tantou?"🏢 ":"？ "):"")+esc(s.name)+(editMode==="moto"&&(s.motouke||s.tantou)?'<div class="small">'+esc(motoText(s))+'</div>':"")+'</button>'});
+  h+='</div>'+editBar("site","終わった現場を一覧から外す","外す現場を押してください(台帳や前の段取りには残ります)")+(editMode==="site"?"":editBar("rename","現場名を変える","名前を変える現場を押してください"))+(editMode==="site"||editMode==="rename"?"":editBar("pos","現場の場所を決める(Google マップ)","場所を決める現場を押してください。📍 は決まっている現場、？ はまだの現場です")+posPanel())+(editMode&&editMode!=="moto"?"":editBar("moto","元請・元請担当者を入れる","元請を入れる現場を押してください。🏢 は入っている現場、？ はまだの現場です"));
+  const picked=site(F.site);
+  if(!editMode&&picked&&(picked.motouke||picked.tantou))h+='<p class="small" style="margin-top:10px">'+esc(F.site)+' の'+esc(motoText(picked))+'</p>';
+  h+='<p style="margin-top:16px">一覧に無いときだけ入れる</p><div class="row"><input type="text" id="siteFree" placeholder="現場名" value="'+(site(F.site)||isRest(F)?"":esc(F.site))+'"><button class="btn" style="width:auto;min-width:110px" onclick="setSite(el(\'siteFree\').value.trim())">決める</button></div>';
+  const same=!replaceRef&&F.site?D.entries.filter(e=>okEntry(e)&&e.day===F.day&&(e.site===F.site||siteName(e.site)===F.site)):[];
+  if(same.length)h+='<div class="note">'+label(F.day)+' の '+esc(F.site)+' は、もう '+same.length+' 件入っています。<div class="row"><button class="chip" onclick="startChange('+D.entries.indexOf(same[same.length-1])+')">予定変更(それを直す)</button><button class="chip" onclick="F.asNew=true;go(1)">新規(別の段取りとして足す)</button></div></div>';
+  if(prefillNote)h+='<div class="note">'+prefillNote+'<div class="row"><button class="chip" onclick="clearPrefill()">前回の分を外す</button></div></div>';
+  return h;
+}
+function setSite(name){
+  if(!name)return;
+  const was=isRest(F);
+  F.site=name;
+  if(isRest(F)){if(!was)F.people=[];F.work=name;F.peopleNone=false;F.crews=[];F.crewsNone=true;F.vehicles=[];F.vehiclesNone=true;F.meet="";F.ky=false;prefillNote="";refresh();return}
+  if(was){F.work="";F.people=[];F.crewsNone=false;F.vehiclesNone=false;F.ky=true}
+  // 前日の分を呼び出す: 同じ現場の前回の人員・協力会社・車両・運転手を入れる(新しく入れるときだけ)
+  const r=D.recent[name];
+  if(!replaceRef&&r&&!F.people.length&&!F.crews.length&&!F.vehicles.length){
+    const f=r.form;
+    F.people=(f.people||[]).filter(n=>D.people.some(p=>p.name===n)&&okPerson(n));F.peopleNone=!!f.peopleNone;
+    F.crews=(f.crews||[]).filter(c=>D.crews.some(x=>x.name===c.name)).map(c=>({name:c.name,count:c.count}));F.crewsNone=!!f.crewsNone;
+    F.vehicles=(f.vehicles||[]).filter(v=>D.vehicles.some(x=>x.name===v.name)).map(v=>({name:v.name,driver:v.driver&&okPerson(v.driver)?v.driver:""}));F.vehiclesNone=!!f.vehiclesNone;
+    if(F.people.length||F.crews.length||F.vehicles.length)prefillNote="前回("+label(r.day)+")の人員・協力会社・車両・運転手を入れました。変わった所だけ外す・足すしてください";
+  }
+  refresh();
+}
+function clearPrefill(){F.people=[];F.crews=[];F.vehicles=[];F.peopleNone=F.crewsNone=F.vehiclesNone=false;prefillNote="";refresh()}
+
+// 3. 作業内容
+function vWork(){
+  let h='<textarea id="work" placeholder="例: 擁壁工、道路側溝" oninput="F.work=this.value;progress()">'+esc(F.work)+'</textarea>';
+  const r=D.recent[F.site]||D.recent[siteName(F.site)];
+  if(r&&r.form.work&&r.form.work!==F.work)h+='<div class="chips"><button class="chip" onclick="F.work=this.dataset.w;refresh()" data-w="'+esc(r.form.work)+'">前回('+label(r.day)+'): '+esc(r.form.work.slice(0,30))+'</button></div>';
+  return h;
+}
+
+// 4. 社内人員
+function vPeople(){
+  let h='<p class="hint">押すと色が変わります。もう一度押すと外れます</p><div class="grid p">';
+  D.people.filter(p=>okPerson(p.name)).forEach(p=>{const on=F.people.indexOf(p.name)>=0;h+='<button class="person'+(on?" on":"")+'" onclick="'+(editMode==="person"?"renamePerson":editMode==="personDel"?"removePerson":"togglePerson")+'(\''+esc(p.name)+'\')"><div class="av" style="background:'+color(p.name)+'">'+esc(p.name.slice(0,1))+'</div><span>'+(editMode==="person"?"✎ ":editMode==="personDel"?"× ":"")+esc(p.name)+'</span></button>'});
+  h+='</div>'+editBar("person","社員の名前を直す","名前を直す人を押してください(台帳や前の段取りは前の名前のまま残ります)")+editBar("personDel","いなくなった社員を一覧から外す","外す人を押してください(台帳や前の段取りには残ります)");
+  if(canEdit()){
+    const cos=editCos();if(cos.indexOf(newPersonCo)<0)newPersonCo=cos.indexOf(F.company)>=0?F.company:cos[0];
+    h+='<div class="card"><h3>一覧にいない社員を足す</h3><input type="text" id="newPerson" placeholder="例: 山田" maxlength="20"><div class="row" style="margin-top:6px">'+cos.map(c=>'<button class="chip'+(newPersonCo===c?" on":"")+'" onclick="newPersonCo=\''+c+'\';keepPerson()">'+c+'</button>').join("")+'</div><button class="btn" style="margin-top:6px" onclick="addPersonToList()">一覧に足す</button></div>';
+  }
+  h+='<div style="margin-top:12px"><button class="btn none'+(F.peopleNone?" on":"")+'" onclick="F.peopleNone=!F.peopleNone;if(F.peopleNone)F.people=[];refresh()">社内の人は なし</button></div>';
+  return h;
+}
+function togglePerson(n){const i=F.people.indexOf(n);if(i>=0)F.people.splice(i,1);else{F.people.push(n);F.peopleNone=false}refresh()}
+
+// 社内人員の一覧を直す(足す・名前を直す・外す。マスタの「一覧を直せる」人だけ。「自社」の人は入力できる会社の人だけ)
+function editCos(){return D.editors[F.inputter]==="自社"?allowedCo(F.inputter):["ネクサス","フォレスト総建","伊賀林業"]}
+function keepPerson(){const t=el("newPerson")?el("newPerson").value:"";refresh();if(el("newPerson"))el("newPerson").value=t}
+function addPersonToList(){
+  const n=(el("newPerson").value||"").trim();
+  if(!n)return;
+  editCall("addPerson",{name:n,company:newPersonCo},r=>{D.people.push(r.person);if(okPerson(r.person.name)&&F.people.indexOf(r.person.name)<0){F.people.push(r.person.name);F.peopleNone=false}});
+}
+function renamePerson(n){
+  ask(n+" さんの正しい名前を入れてください",n,to=>{
+    if(to===n)return;
+    const fix=f=>{f.people=(f.people||[]).map(x=>x===n?to:x);(f.vehicles||[]).forEach(v=>{if(v.driver===n)v.driver=to})};
+    editCall("renamePerson",{name:n,to:to},r=>{const p=D.people.find(x=>x.name===n);if(p)p.name=r.person.name;fix(F);cart.forEach(fix);editMode=""});
+  });
+}
+function removePerson(n){
+  ask(n+" さんを社内人員の一覧から外しますか?\n(台帳や前の段取りには残ります。「一覧に足す」で同じ名前を入れると戻せます)",null,()=>
+    editCall("removePerson",{name:n},()=>{D.people=D.people.filter(x=>x.name!==n);F.people=F.people.filter(x=>x!==n);F.vehicles.forEach(v=>{if(v.driver===n)v.driver=""})}));
+}
+
+// 5. 協力会社・人数
+function vCrews(){
+  let h='<p class="hint">会社を押して、人数を − + で合わせます(なければ飛ばしてかまいません)</p><div class="grid">';
+  D.crews.forEach(c=>{const on=F.crews.some(x=>x.name===c.name);h+='<button class="btn'+(on?" on":"")+'" onclick="'+(editMode==="crew"?"renameCrew":editMode==="crewDel"?"removeCrew":"toggleCrew")+'(\''+esc(c.name)+'\')">'+(editMode==="crew"?"✎ ":editMode==="crewDel"?"× ":"")+esc(c.name)+'</button>'});
+  h+='</div>'+editBar("crew","協力会社の名前を直す","名前を直す協力会社を押してください(台帳や前の段取りは前の名前のまま残ります)")+editBar("crewDel","使わなくなった協力会社を一覧から外す","外す協力会社を押してください(台帳や前の段取りには残ります)");
+  if(canEdit())h+='<div class="card"><h3>一覧に無い協力会社を足す</h3><div style="display:flex;gap:8px;align-items:stretch"><input type="text" id="newCrew" style="flex:1;min-width:0" placeholder="例: ○○建設" maxlength="30" onkeydown="if(event.key===\'Enter\')addCrewToList()"><button class="btn" style="width:auto;min-width:110px" onclick="addCrewToList()">一覧に足す</button></div></div>';
+  F.crews.forEach((c,i)=>{h+='<div class="card"><h3>'+esc(c.name)+'</h3><div class="step"><button onclick="crewCount('+i+',-1)">−</button><b>'+(c.count||0)+'</b><span>名</span><button onclick="crewCount('+i+',1)">+</button></div></div>'});
+  h+='<div style="margin-top:12px"><button class="btn none'+(F.crewsNone?" on":"")+'" onclick="F.crewsNone=!F.crewsNone;if(F.crewsNone)F.crews=[];refresh()">協力会社は なし</button></div>';
+  return h;
+}
+function toggleCrew(n){const i=F.crews.findIndex(x=>x.name===n);if(i>=0)F.crews.splice(i,1);else{F.crews.push({name:n,count:1});F.crewsNone=false}refresh()}
+// 協力会社の一覧を直す(足す・名前を直す。マスタの「一覧を直せる」人だけ)
+function addCrewToList(){
+  const n=(el("newCrew").value||"").trim();
+  if(!n)return;
+  editCall("addCrew",{name:n},r=>{D.crews.push(r.crew);if(!F.crews.some(x=>x.name===r.crew.name)){F.crews.push({name:r.crew.name,count:1});F.crewsNone=false}});
+}
+function renameCrew(n){
+  ask(n+" の正しい名前を入れてください",n,to=>{
+    if(to===n)return;
+    editCall("renameCrew",{name:n,to:to},r=>{const c=D.crews.find(x=>x.name===n);if(c)c.name=r.crew.name;F.crews.forEach(x=>{if(x.name===n)x.name=r.crew.name});cart.forEach(f=>(f.crews||[]).forEach(x=>{if(x.name===n)x.name=r.crew.name}));editMode=""});
+  });
+}
+function removeCrew(n){
+  ask(n+" を協力会社の一覧から外しますか?\n(台帳や前の段取りには残ります。「一覧に足す」で同じ名前を入れると戻せます)",null,()=>
+    editCall("removeCrew",{name:n},()=>{D.crews=D.crews.filter(x=>x.name!==n);F.crews=F.crews.filter(x=>x.name!==n)}));
+}
+function crewCount(i,d){F.crews[i].count=Math.max(1,Math.min(99,(F.crews[i].count||0)+d));refresh()}
+
+// 6. 車両・重機
+function vVehicles(){
+  let h='<p class="hint">押すたびに 1 台ずつ増えます。外すときは下の × を押します</p><div class="grid">';
+  D.vehicles.forEach(v=>{const n=F.vehicles.filter(x=>x.name===v.name).length;h+='<button class="veh'+(n?" on":"")+'" onclick="'+(editMode==="veh"?"removeVeh":"addVeh")+'(\''+esc(v.name)+'\')">'+(n?'<span class="n">'+n+'</span>':"")+icon(v.icon)+'<span>'+(editMode==="veh"?"× ":"")+esc(v.name)+'</span></button>'});
+  h+='</div>'+editBar("veh","使わなくなった車両・重機を一覧から外す","外す車両・重機を押してください(台帳や前の段取りには残ります)");
+  if(canEdit())h+='<div class="card"><h3>一覧に無い車両・重機を足す</h3><input type="text" id="newVeh" placeholder="例: 7tキャリー" maxlength="30"><div class="row" style="margin-top:6px"><button class="chip'+(newVehKind==="車両"?" on":"")+'" onclick="newVehKind=\'車両\';keepVeh()">車両(運転手が要る)</button><button class="chip'+(newVehKind==="重機"?" on":"")+'" onclick="newVehKind=\'重機\';keepVeh()">重機</button></div><button class="btn" style="margin-top:6px" onclick="addVehicleToList()">一覧に足す</button></div>';
+  if(F.vehicles.length){h+='<div class="card"><h3>選んだ車両・重機</h3>';F.vehicles.forEach((v,i)=>{h+='<div class="row" style="justify-content:space-between;margin:6px 0"><span>'+esc(v.name)+(v.driver?"("+esc(v.driver)+")":"")+'</span><button class="chip" onclick="F.vehicles.splice('+i+',1);refresh()">× 外す</button></div>'});h+='</div>'}
+  h+='<div style="margin-top:12px"><button class="btn none'+(F.vehiclesNone?" on":"")+'" onclick="F.vehiclesNone=!F.vehiclesNone;if(F.vehiclesNone)F.vehicles=[];refresh()">車両・重機は なし</button></div>';
+  return h;
+}
+function addVeh(n){F.vehicles.push({name:n,driver:""});F.vehiclesNone=false;refresh()}
+
+// 一覧を直す(マスタの「一覧を直せる」人だけ。外すのは印を付けるだけで、マスタで戻せる)
+// 確かめと名前の入力は、画面の中に出す(スマホや LINE の中のブラウザでは、prompt・confirm の小窓が出ずに何も起きないことがある)
+// def が null なら「はい / やめる」の確かめ、文字なら名前を入れる窓、[{label,value,max}] なら欄を並べる窓(空でも決められ、done に配列で返す)。「はい」「決める」のときだけ done を呼ぶ
+let askDone=null;
+function ask(msg,def,done){
+  let o=el("ask");
+  if(!o){o=document.createElement("div");o.id="ask";o.className="ask";document.body.appendChild(o)}
+  askDone=done;
+  o.innerHTML='<div class="card"><div style="white-space:pre-wrap;font-size:19px;font-weight:700">'+esc(msg)+'</div>'+(def===null?"":Array.isArray(def)?def.map((f,i)=>'<div style="margin-top:10px">'+esc(f.label)+'</div><input type="text" id="askText'+i+'" maxlength="'+(f.max||60)+'">').join(""):'<input type="text" id="askText" maxlength="60" style="margin-top:10px" onkeydown="if(event.key===\'Enter\')askEnd(true)">')+'<button class="btn" style="margin-top:12px" onclick="askEnd(true)">'+(def===null?"はい":"決める")+'</button><button class="btn none" style="margin-top:8px" onclick="askEnd(false)">やめる</button></div>';
+  o.style.display="flex";
+  if(Array.isArray(def)){def.forEach((f,i)=>{el("askText"+i).value=f.value||""});el("askText0").focus()}
+  else if(def!==null){el("askText").value=def;el("askText").focus()}
+}
+function askEnd(ok){
+  const o=el("ask"),t=el("askText"),many=[...o.querySelectorAll('input[id^="askText"]')].filter(x=>x.id!=="askText"),v=many.length?many.map(x=>x.value.trim()):t?t.value.trim():true,d=askDone;
+  askDone=null;o.style.display="none";o.innerHTML="";
+  if(ok&&d&&v)d(v);
+}
+function canEdit(){return !!(D.editors&&D.editors[F.inputter])}
+function editBar(mode,label,hint){
+  if(!canEdit())return "";
+  if(editMode===mode)return '<div class="note">'+esc(hint)+'<div class="row"><button class="chip" onclick="editMode=\'\';refresh()">直し終わる</button></div></div>';
+  return '<div style="margin-top:10px"><button class="chip" onclick="editMode=\''+mode+'\';refresh()">'+esc(label)+'</button></div>';
+}
+function keepVeh(){const t=el("newVeh")?el("newVeh").value:"";refresh();if(el("newVeh"))el("newVeh").value=t}
+function editCall(action,value,done){
+  google.script.run.withSuccessHandler(r=>{done(r);refresh();el("main").insertAdjacentHTML("afterbegin",'<div class="note">'+esc(r.message)+'</div>')})
+    .withFailureHandler(e=>{el("main").insertAdjacentHTML("afterbegin",'<div class="err">'+esc(e.message)+'</div>');window.scrollTo(0,0)})
+    .editMaster(KEY,F.inputter,action,value);
+}
+// 現場の元請名と元請担当者名を入れる(マスタの現場の行に入る。空にして決めると消える)
+function motoText(s){return "元請: "+(s.motouke||"―")+" / 担当: "+(s.tantou||"―")}
+function motoSite(n){
+  const s=D.sites.find(x=>x.name===n);if(!s)return;
+  ask(n+" の元請を入れてください",[{label:"元請名",value:s.motouke||"",max:40},{label:"元請担当者名",value:s.tantou||"",max:30}],v=>
+    editCall("setSiteMotouke",{name:n,motouke:v[0],tantou:v[1]},r=>{s.motouke=r.site.motouke;s.tantou=r.site.tantou}));
+}
+function endSite(n){
+  ask(n+" を終わった現場にして、一覧から外しますか?\n(台帳や前の段取りには残ります)",null,()=>
+    editCall("endSite",{name:n},()=>{D.sites=D.sites.filter(s=>s.name!==n);if(F.site===n)F.site=""}));
+}
+function renameSite(n){
+  ask(n+" の新しい現場名を入れてください",n,to=>{
+    if(to===n)return;
+    editCall("renameSite",{name:n,to:to},()=>{const s=D.sites.find(x=>x.name===n);if(s)s.name=to;if(D.recent[n]){D.recent[to]=D.recent[n]}if(F.site===n)F.site=to});
+  });
+}
+// 現場の場所を決める: Google マップを開いて場所を選び、共有のリンクを貼ると緯度・経度がマスタに入る(KY の天気に使う)
+function posPanel(){
+  const s=editMode==="pos"&&posTarget?D.sites.find(x=>x.name===posTarget):null;
+  if(!s)return "";
+  const has=s.lat!=null&&s.lon!=null;
+  const map="https://www.google.com/maps/search/?api=1&query=";
+  return '<div class="card" id="posPanel" style="scroll-margin-top:120px"><b>'+esc(s.name)+' の場所</b>'
+    +'<p class="small">'+(has?'今の場所: <a target="_blank" rel="noopener" style="color:#fff" href="'+map+s.lat+','+s.lon+'">Google マップで見る</a>':'まだ決まっていません(KY の天気は奈良市あたりで出ます)')+'</p>'
+    +'<p style="margin:10px 0 4px"><b>'+(D.mapsKey&&!gmFailed?"住所・施設名で探す":"住所・地名で探す")+'</b></p>'
+    +'<div style="display:flex;gap:8px;align-items:stretch"><input type="text" id="posQ" style="flex:1;min-width:0" placeholder="'+(D.mapsKey&&!gmFailed?"例: 奈良市八条町、○○工業 奈良工場":"例: 奈良市八条町")+'" onkeydown="if(event.key===\'Enter\')posSearch()"><button class="btn" style="width:auto;min-width:84px" onclick="posSearch()">探す</button></div>'
+    +'<div id="posCands">'+candsHtml()+'</div>'
+    +'<p class="small">地図を動かして現場を押すと、赤い印が付きます。地図の上のボタンで航空写真に切り替えられます</p>'
+    +'<div id="posMap" style="height:340px;margin:10px 0;border-radius:12px;overflow:hidden;background:#0b1326;color:#111;z-index:0"></div>'
+    +'<p class="small" id="posPickTxt">'+(posPick?posPick[0].toFixed(5)+", "+posPick[1].toFixed(5):"まだ地図を押していません")+'</p>'
+    +'<button class="btn" id="posPickBtn" onclick="savePick()" '+(posPick?"":"disabled")+'>この場所に決める</button>'
+    +'<p class="small" style="margin-top:18px">Google マップで決めるとき: <a target="_blank" rel="noopener" style="color:#fff" href="'+map+encodeURIComponent(has?s.lat+","+s.lon:s.name)+'">Google マップを開く</a> → 現場を長押ししてピンを立て、「共有」→「リンクをコピー」→ ここに貼り付けて「決める」</p>'
+    +'<div class="row"><input type="text" id="posText" placeholder="Google マップのリンク"><button class="btn" style="width:auto;min-width:110px" onclick="savePos()">決める</button></div></div>';
+}
+// 地図の部品を一度だけ読み込む
+function loadLeaflet(cb){
+  if(window.L)return cb();
+  let s=document.getElementById("lfJs");
+  if(!s){
+    const c=document.createElement("link");c.rel="stylesheet";c.href=LF+"leaflet.min.css";c.integrity=LF_CSS;c.crossOrigin="anonymous";document.head.appendChild(c);
+    s=document.createElement("script");s.id="lfJs";s.src=LF+"leaflet.min.js";s.integrity=LF_JS;s.crossOrigin="anonymous";
+    s.addEventListener("error",()=>{s.remove();const b=el("posMap");if(b)b.innerHTML='<p style="color:#fff;padding:12px">地図を読み込めませんでした。下の Google マップのリンクで決めてください</p>'});
+    document.head.appendChild(s);
+  }
+  s.addEventListener("load",cb);
+}
+// Google の地図の部品を一度だけ読み込む(スクリプト プロパティ GOOGLE_MAPS_KEY があるときだけ)。
+// 鍵が通らない・読み込めないときは国土地理院の地図に切り替える
+function loadGoogle(cb){
+  if(window.google&&google.maps&&google.maps.Map)return cb();
+  gmCbs.push(cb);
+  if(document.getElementById("gmJs"))return;
+  const fail=()=>{gmFailed=true;gmCbs=[];posKind="";posMap=null;posMark=null;const b=el("posMap");if(b){delete b.dataset.done;b.innerHTML=""}initPosMap()};
+  window.gmReady=()=>{const f=gmCbs;gmCbs=[];f.forEach(x=>x())};
+  window.gm_authFailure=fail;
+  const s=document.createElement("script");s.id="gmJs";
+  s.src="https://maps.googleapis.com/maps/api/js?key="+encodeURIComponent(D.mapsKey)+"&language=ja&region=JP&v=weekly&callback=gmReady";
+  s.addEventListener("error",fail);
+  document.head.appendChild(s);
+}
+// 場所の札が出ているときに地図を描く(描き直しのたびに呼ばれる。同じ枠には 1 回だけ)
+function initPosMap(){
+  const first=el("posMap");
+  if(!first||first.dataset.done)return;
+  if(D.mapsKey&&!gmFailed)loadGoogle(()=>drawPosMap("g"));else loadLeaflet(()=>drawPosMap("l"));
+}
+function drawPosMap(kind){
+  const box=el("posMap");
+  if(!box||box.dataset.done)return;
+  box.dataset.done="1";
+  if(posMap&&posKind==="l"){try{posMap.remove()}catch(e){}}
+  posKind=kind;posMark=null;
+  const s=D.sites.find(x=>x.name===posTarget);
+  const has=!!s&&s.lat!=null&&s.lon!=null;
+  const c=posPick||(has?[s.lat,s.lon]:[34.685,135.805]);
+  if(kind==="g"){
+    // gestureHandling: 指 1 本で地図を動かせるように(既定は 2 本指)
+    posMap=new google.maps.Map(box,{center:{lat:c[0],lng:c[1]},zoom:posPick||has?17:10,mapTypeControl:true,streetViewControl:false,fullscreenControl:false,clickableIcons:false,gestureHandling:"greedy"});
+    posMap.addListener("click",e=>setPick(e.latLng.lat(),e.latLng.lng()));
+  }else{
+    posMap=L.map(box).setView(c,posPick||has?16:10);
+    posMap.attributionControl.setPrefix("Leaflet");
+    const opt={maxZoom:18,attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>'};
+    const std=L.tileLayer(GSI+"std/{z}/{x}/{y}.png",opt).addTo(posMap);
+    const photo=L.tileLayer(GSI+"seamlessphoto/{z}/{x}/{y}.jpg",opt);
+    L.control.layers({"地図":std,"航空写真":photo},null,{collapsed:false}).addTo(posMap);
+    posMap.on("click",e=>setPick(e.latlng.lat,e.latlng.lng));
+  }
+  if(posPick||has)markAt(c[0],c[1]);
+}
+function markAt(lat,lon){
+  if(posKind==="g"){
+    if(posMark)posMark.setPosition({lat:lat,lng:lon});else posMark=new google.maps.Marker({position:{lat:lat,lng:lon},map:posMap});
+  }else if(posMark)posMark.setLatLng([lat,lon]);
+  else posMark=L.circleMarker([lat,lon],{radius:11,color:"#b91c1c",weight:4,fillColor:"#ef4444",fillOpacity:.6}).addTo(posMap);
+}
+function moveTo(lat,lon,zoom){
+  if(posKind==="g"){posMap.setCenter({lat:lat,lng:lon});posMap.setZoom(zoom)}else posMap.setView([lat,lon],zoom);
+}
+function setPick(lat,lon){
+  posPick=[lat,lon];
+  markAt(lat,lon);
+  el("posPickTxt").textContent=lat.toFixed(5)+", "+lon.toFixed(5);
+  el("posPickBtn").disabled=false;
+}
+function savePick(){
+  const n=posTarget;
+  if(!posPick||!n)return;
+  editCall("setSitePos",{name:n,text:posPick[0].toFixed(5)+", "+posPick[1].toFixed(5)},r=>{const s=D.sites.find(x=>x.name===n);if(s&&r.site){s.lat=r.site.lat;s.lon=r.site.lon}posTarget="";posPick=null});
+}
+// 地名で地図を動かす(国土地理院の住所検索。Google の地図のときも同じ。印は付けない)
+// 施設名で探した候補(押すと地図がそこへ動き、赤い印が付く)
+function candsHtml(){
+  return posCands.map((c,i)=>'<button class="btn" style="text-align:left;margin-top:6px" onclick="pickCand('+i+')"><b>'+esc(c.name)+'</b><br><span class="small">'+esc(c.addr)+'</span></button>').join("");
+}
+function pickCand(i){
+  const c=posCands[i];
+  if(!c||!posMap)return;
+  posCands=[];el("posCands").innerHTML="";
+  moveTo(c.lat,c.lon,17);
+  setPick(c.lat,c.lon);
+  el("posPickTxt").textContent=c.name+" に印を付けました。ずれていたら地図を押して直してください";
+}
+// 探す: Google の地図のときは先に Google の検索(施設名・住所。Places API の Text Search)。
+// 候補が出ない・使えないときと、国土地理院の地図のときは、国土地理院の住所検索で地図を動かす(印は付けない)
+async function posSearch(){
+  const q=(el("posQ").value||"").trim();
+  if(!q||!posMap)return;
+  const say=t=>{const e=el("posPickTxt");if(e)e.textContent=t};
+  posCands=[];if(el("posCands"))el("posCands").innerHTML="";
+  say("探しています…");
+  if(posKind==="g"){
+    try{
+      const lib=await google.maps.importLibrary("places");
+      const ct=posMap.getCenter();
+      const res=await lib.Place.searchByText({textQuery:q,fields:["displayName","formattedAddress","location"],language:"ja",region:"jp",maxResultCount:5,locationBias:{lat:ct.lat(),lng:ct.lng()}});
+      posCands=((res&&res.places)||[]).filter(x=>x.location).map(x=>({name:String(x.displayName||q),addr:String(x.formattedAddress||"").replace(/^日本、\s*(〒[\d-]+\s*)?/,""),lat:x.location.lat(),lon:x.location.lng()}));
+      if(posCands.length===1&&el("posCands"))return pickCand(0);
+      if(posCands.length){if(el("posCands"))el("posCands").innerHTML=candsHtml();return say("候補が "+posCands.length+" 件あります。合うものを押してください")}
+    }catch(e){posCands=[]}
+  }
+  fetch("https://msearch.gsi.go.jp/address-search/AddressSearch?q="+encodeURIComponent(q)).then(r=>r.json()).then(a=>{
+    if(!a||!a.length)return say("「"+q+"」は見つかりませんでした。市町村名から入れてみてください");
+    const c=a[0].geometry.coordinates;
+    moveTo(c[1],c[0],15);
+    say(a[0].properties.title+" のあたりを出しました。現場を押してください");
+  }).catch(()=>say("探せませんでした。地図を動かして現場を押してください"));
+}
+function posSite(n){if(n!==posTarget){posPick=null;posCands=[]}posTarget=n;refresh();const e=el("posPanel");if(e)e.scrollIntoView({block:"start"})}
+function savePos(){
+  const t=(el("posText").value||"").trim();const n=posTarget;
+  if(!t||!n)return;
+  editCall("setSitePos",{name:n,text:t},r=>{const s=D.sites.find(x=>x.name===n);if(s&&r.site){s.lat=r.site.lat;s.lon=r.site.lon}posTarget="";posPick=null});
+}
+function removeVeh(n){
+  ask(n+" を一覧から外しますか?\n(台帳や前の段取りには残ります)",null,()=>
+    editCall("removeVehicle",{name:n},()=>{D.vehicles=D.vehicles.filter(v=>v.name!==n);F.vehicles=F.vehicles.filter(v=>v.name!==n)}));
+}
+function addVehicleToList(){
+  const n=(el("newVeh").value||"").trim();
+  if(!n||!newVehKind){el("main").insertAdjacentHTML("afterbegin",'<div class="err">名前と、車両か重機かを入れてください</div>');return}
+  editCall("addVehicle",{name:n,kind:newVehKind},r=>{if(r.vehicle&&!D.vehicles.some(v=>v.name===r.vehicle.name))D.vehicles.push(r.vehicle);newVehKind=""});
+}
+
+// 7. 運転手(車ごとに社内人員から選ぶ。セットにしない)
+function vDrivers(){
+  let h='<p class="hint">車ごとに乗る人を選びます。今日の人員が先に並びます</p>';
+  const order=F.people.concat(D.people.map(p=>p.name).filter(n=>F.people.indexOf(n)<0&&okPerson(n)));
+  F.vehicles.forEach((v,i)=>{
+    const info=veh(v.name);const must=info.kind==="車両";
+    h+='<div class="card"><h3>'+icon(info.icon)+esc(v.name)+'<span class="small">'+(must?"運転手(必ず)":"オペ(分かれば)")+'</span></h3><div class="grid p">';
+    order.forEach(n=>{const on=v.driver===n;h+='<button class="person'+(on?" on":"")+'" onclick="setDriver('+i+',\''+esc(n)+'\')"><div class="av" style="background:'+color(n)+'">'+esc(n.slice(0,1))+'</div><span>'+esc(n)+'</span></button>'});
+    h+='</div></div>';
+  });
+  return h;
+}
+function setDriver(i,n){F.vehicles[i].driver=F.vehicles[i].driver===n?"":n;refresh()}
+
+// 8. 集合場所・時刻と備考
+function meetParts(){const m=/^(.*?)\s*(\d{1,2}:\d{2})?$/.exec(F.meet||"");return {place:(m&&m[1])||"",time:(m&&m[2])||""}}
+function vMeet(){
+  const p=meetParts();
+  let h='<p>場所</p><div class="chips">';
+  ["Aゲート","Bゲート","置き場","現地"].forEach(x=>{h+='<button class="chip'+(p.place===x?" on":"")+'" onclick="setMeet(\''+x+'\',null)">'+x+'</button>'});
+  h+='</div><input type="text" value="'+esc(p.place)+'" placeholder="場所" onchange="setMeet(this.value,null)">';
+  h+='<p>時刻</p><div class="chips">';
+  ["7:00","7:30","8:00","8:15","8:30","9:00"].forEach(x=>{h+='<button class="chip'+(p.time===x?" on":"")+'" onclick="setMeet(null,\''+x+'\')">'+x+'</button>'});
+  h+='</div><input type="time" value="'+(p.time?p.time.padStart(5,"0"):"")+'" onchange="setMeet(null,this.value.replace(/^0/,\'\'))">';
+  h+='<p style="margin-top:18px">備考(なくてもよい)</p><textarea oninput="F.note=this.value">'+esc(F.note)+'</textarea>';
+  return h;
+}
+function setMeet(place,time){const p=meetParts();if(place!==null)p.place=place.trim();if(time!==null)p.time=time;F.meet=[p.place,p.time].filter(Boolean).join(" ");refresh()}
+
+// 9. 確認
+function texts(f){return{people:f.peopleNone?"なし":f.people.join("、"),crews:f.crewsNone||!f.crews.length?"なし":f.crews.map(c=>c.name+c.count+"名").join("、"),vehicles:f.vehiclesNone?"なし":f.vehicles.map(v=>v.name+(v.driver?"("+v.driver+")":"")).join("、")}}
+function fields(f){const t=texts(f);return [["対象日",label(f.day)],["現場",f.site],["作業",f.work],["人員",t.people],["協力",t.crews],["車両",t.vehicles],["集合",f.meet||""],["備考",f.note||""]]}
+function postText(){
+  const head=(replaceRef?"【予定変更】":"【新規】")+F.inputter+"さんより\n"+label(F.day)+" "+F.site+"\n";
+  if(!replaceRef&&isRest(F))return head+"人員:"+texts(F).people+"\n備考:"+F.note;
+  if(!replaceRef){const t=texts(F);return head+"作業:"+F.work+"\n人員:"+t.people+"\n協力:"+t.crews+"\n車両:"+t.vehicles+"\n集合:"+F.meet+"\n備考:"+F.note}
+  const a=fields(original),b=fields(F);
+  const ch=b.filter((x,i)=>x[1]!==a[i][1]).map((x,i)=>"▶"+x[0]+":"+(x[1]||"(空)")+"\n  (前:"+(a.find(y=>y[0]===x[0])[1]||"(空)")+")");
+  return head+(ch.length?ch.join("\n"):"内容は前と同じです(送り直し)");
+}
+function vConfirm(){
+  const m=missing();
+  let h='';
+  const same=sameEntries();
+  if(same.length)h+='<div class="note"><b>'+label(F.day)+' の '+esc(F.site)+' は、もう '+same.length+' 件入っています。新規か予定変更かを選んでください</b>'+same.map(e=>'<div class="row"><button class="chip" onclick="asChange('+D.entries.indexOf(e)+')">予定変更: 「'+esc(String(e.work||"").slice(0,14))+'」('+esc(e.by)+')を置き換える</button></div>').join("")+'<div class="row"><button class="chip'+(F.asNew?" on":"")+'" onclick="F.asNew=true;refresh()">新規: 別の段取りとして足す</button></div></div>';
+  if(needMsg&&!same.length&&!replaceRef&&!F.asNew)h+='<div class="note"><b>同じ日・同じ現場の段取りが、もう台帳に入っています</b><div class="row"><button class="chip" onclick="F.asNew=true;needMsg=\'\';refresh()">新規: 別の段取りとして足す</button></div><p class="small">予定変更にするときは、最初の画面の「入力済みの段取り」から直してください</p></div>';
+  if(replaceRef)h+='<div class="note">予定変更として送ります(前の段取りは「変更前」になります)。<div class="row"><button class="chip" onclick="replaceRef=\'\';original=null;refresh()">予定変更をやめる</button></div></div>';
+  if(m.length)h+='<div class="err">まだ入っていない項目: '+esc(m.join("・"))+'\n戻って入れると送信できます</div>';
+  const cos=allowedCo(F.inputter);
+  h+='<p>流す先(会社の LINE)</p>'+(cos.length>1?'<div class="row">'+cos.map(c=>'<button class="chip'+(F.company===c?" on":"")+'" onclick="setCompany(\''+esc(c)+'\')">'+esc(c)+'</button>').join("")+'</div>':'<p class="small">'+esc(F.company)+' の LINE に流します</p>');
+  h+='<p class="hint">'+esc(F.company)+' の LINE にはこう流れます'+(replaceRef?"(変わった所だけ)":"")+'</p><div class="preview">'+esc(postText())+'</div>';
+  if(!isRest(F))h+='<p style="margin-top:16px">KY(危険予知)</p><div class="row"><button class="chip'+(F.ky?" on":"")+'" onclick="F.ky=true;refresh()">KY を出す</button><button class="chip'+(F.ky?"":" on")+'" onclick="F.ky=false;refresh()">KY は出さない</button></div>';
+  h+='<p class="small" style="margin-top:12px">送信すると台帳に 1 行足し、ECP ボットが LINE に投稿します。'+(F.ky?"天気と作業から KY の案も作り、LINE に KY の案内を付けます。":"KY の案は作らず、LINE にも KY の案内を付けません。")+'</p>';
+  if(!replaceRef){
+    const full=cart.length+1>=CART_MAX;
+    h+='<button class="btn" style="margin-top:16px" onclick="putAside()" '+(m.length||full?"disabled":"")+'>続けてほかの段取りを入れる(まだ送らない)</button>';
+    h+='<p class="small">'+(full?"まとめて送れるのは "+CART_MAX+" 件までです。いったん送信してください":"続けて入れた段取りは、送信するまで LINE に流れません。最後に全部の文面を確かめてから、1 回の投稿にまとめて送ります")+'</p>';
+  }
+  return h;
+}
+// 置いておいた段取りの一覧(どの画面でも上に出す)
+function vCart(onConfirm){
+  let h='<div class="note"><b>置いた段取り '+cart.length+' 件</b>'+(onConfirm?"(この段取りと一緒に送ります)":"(まだ送っていません)");
+  cart.forEach((f,i)=>{h+='<div class="row" style="justify-content:space-between;margin:6px 0"><span>'+label(f.day)+' '+esc(f.site)+'('+esc(String(f.work).slice(0,16))+')</span><span><button class="chip" onclick="editCart('+i+')">直す</button> <button class="chip" onclick="cart.splice('+i+',1);refresh()">× 外す</button></span></div>'});
+  if(!onConfirm)h+='<div class="row"><button class="chip" onclick="sendCart()" '+(sending?"disabled":"")+'>'+(sending?"送信中…":"置いた "+cart.length+" 件の文面を確認して送る")+'</button></div>';
+  return h+'</div>';
+}
+function putAside(){
+  if(missing().length||replaceRef)return;
+  cart.push(F);
+  const keep={day:F.day,ky:isRest(F)?true:F.ky,company:F.company};
+  // 置いた段取りと同じ現場をもう 1 件入れるときは、新規として扱う(同じ送信の中の別の段取り)
+  F=Object.assign(blank(),keep);prefillNote="";step=1;render();
+}
+// 置いた段取りを取り出して直す(今入れかけの分は置いた一覧に戻す)
+function editCart(i){
+  const f=cart.splice(i,1)[0];
+  if(F.site&&!missing().length)cart.push(F);
+  F=f;prefillNote="";step=1;render();
+}
+
+function send(){
+  if(sending||missing().length)return;
+  if(cart.length&&!replaceRef){review=cart.concat([F]);render();freshen(()=>{if(review)refresh()});return}
+  sending=true;refresh();
+  google.script.run.withSuccessHandler(r=>{
+    sending=false;
+    el("doneLine").textContent=r.duplicate?"(同じ送信は 1 回だけ記録しました)":(r.line&&r.line.message)||"";
+    el("doneKy").textContent=r.ky&&r.ky.items?"KY の案を "+r.ky.items.length+" 項目作りました"+(r.ky.weather?"(天気: "+r.ky.weather+")":""):r.ky&&r.ky.error?"KY の案は作れませんでした: "+r.ky.error:"";
+    const a=el("kyLink");if(r.kyUrl){a.href=r.kyUrl;a.style.display="block"}else a.style.display="none";
+    el("done").classList.add("show");
+  }).withFailureHandler(e=>sendFailed(e,false)).submit(KEY,F,replaceRef);
+}
+function sendCart(){if(cart.length&&!sending){review=cart.slice();render();freshen(()=>{if(review)refresh()})}}
+// まとめて送る文面(サーバーが LINE に流す形と同じ。会社ごとに 1 回の投稿)
+function manyTexts(list){
+  return ["ネクサス","フォレスト総建","伊賀林業"].map(co=>{
+    const mine=list.filter(f=>(f.company||"ネクサス")===co);
+    if(!mine.length)return null;
+    const body=mine.map((f,i)=>{const t=texts(f);if(isRest(f))return "━━━━━━\n"+(i+1)+". "+label(f.day)+" "+f.site+"\n人員:"+t.people+"\n備考:"+f.note;return "━━━━━━\n"+(i+1)+". "+label(f.day)+" "+f.site+"\n作業:"+f.work+"\n人員:"+t.people+"\n協力:"+t.crews+"\n車両:"+t.vehicles+"\n集合:"+f.meet+"\n備考:"+f.note+(f.ky?"\nKY案・確認: (送ると KY のリンクが付きます)":"")}).join("\n");
+    return {company:co,count:mine.length,text:"【新規】"+mine[0].inputter+"さんより "+mine.length+" 件\n"+body};
+  }).filter(Boolean);
+}
+function vReview(){
+  const parts=manyTexts(review);
+  let h='<h2>LINE に送る文面の確認</h2>';
+  const clash=reviewClash();
+  clash.forEach(f=>{const s=sameFor(f),i=review.indexOf(f);h+='<div class="note"><b>'+label(f.day)+' の '+esc(f.site)+' は、もう '+s.length+' 件入っています</b>('+s.map(e=>"「"+esc(String(e.work||"").slice(0,14))+"」"+esc(e.by)).join("、")+')。新規か、外すかを選んでください<div class="row"><button class="chip" onclick="reviewNew('+i+')">新規: 別の段取りとして足す</button><button class="chip" onclick="reviewDrop('+i+')">この 1 件は外して、ほかを送る</button></div><p class="small">予定変更にするときは、外してほかを送ったあと、最初の画面の「入力済みの段取り」から直してください(外した分は「置いた段取り」に残ります)</p></div>'});
+  if(needMsg&&!clash.length&&review.some(f=>!f.asNew))h+='<div class="note"><b>同じ日・同じ現場の段取りが、もう台帳に入っています</b><div class="row"><button class="chip" onclick="reviewAllNew()">新規: 別の段取りとして足して送る</button></div></div>';
+  h+='<p class="hint">まだ送っていません。下の文面で '+review.length+' 件を送ります。会社ごとに 1 回の投稿にまとまります</p>';
+  parts.forEach(x=>{h+='<p style="margin-top:14px"><b>'+esc(x.company)+' の LINE('+x.count+' 件)</b></p><div class="preview">'+esc(x.text)+'</div>'});
+  return h;
+}
+function sendMany(list){
+  sending=true;refresh();
+  google.script.run.withSuccessHandler(r=>{
+    sending=false;
+    const sent=list.map(f=>f.requestId);
+    review=null;
+    cart=cart.filter(f=>sent.indexOf(f.requestId)<0);
+    if(sent.indexOf(F.requestId)>=0)F=blank();
+    el("doneLine").textContent=r.results.length+" 件を台帳に入れました。"+(r.line?r.line.message:"(同じ送信は 1 回だけ記録しました)");
+    const ky=r.results.filter(x=>x.kyUrl);
+    el("doneKy").innerHTML=ky.length?"KY の案:<br>"+ky.map(x=>'<a href="'+esc(x.kyUrl)+'" target="_blank" style="color:var(--accent)">'+esc(label(x.day)+" "+x.site)+'</a>').join("<br>"):"";
+    el("kyLink").style.display="none";
+    el("done").classList.add("show");
+  }).withFailureHandler(e=>sendFailed(e,true)).submitMany(KEY,list);
+}
+// 続けてもう 1 件: サーバーの返事を待たずに、手元の一覧ですぐ次を打てるようにする。
+// 入力済みの段取りなどは裏で取り直し、最初の画面にいるときだけ描き直す(打っている途中の文字を消さない)
+function again(){
+  el("done").classList.remove("show");
+  F=blank();step=0;replaceRef="";original=null;prefillNote="";review=null;sending=false;editMode="";needMsg="";
+  render();
+  google.script.run.withSuccessHandler(d=>{D=d;if(step===0&&!review)refresh()}).withFailureHandler(()=>{}).getStart(KEY);
+}
+
+load();
+</script>
+</body>
+</html>
