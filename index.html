@@ -139,7 +139,7 @@ button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 
 // ───────── アプリ版の殻(app/build.mjs が入れる) ─────────
 const API = "https://script.google.com/macros/s/AKfycbxpIDEYjPuIrUQY4yy5pFfgFZslzVvxiP-nSV_D-wgJ0XKq3zH4nP2SB2NUsYocCvp7bQ/exec";
-const APP_VERSION = "2026.1119.2041";
+const APP_VERSION = "2026.1120.1525";
 // 合言葉: リンクの #k=… から取り、端末に覚える。iPhone はホーム画面のアイコンが開いたときの URL(# つき)を覚えるので、# は消さない
 const KEY = (() => {
   let k = "";
@@ -507,7 +507,16 @@ function vSite(){
 // 一覧に無い現場名を打ったとき: 一覧に足すかを 1 回だけ聞く(足すと次から選べる。「運搬マン」のように現場でないものは「今回だけ使う」)
 const askedSite={};
 function offerSite(name){
-  if(site(name)||siteName(name)||REST.indexOf(name)>=0||askedSite[name])return;
+  if(REST.indexOf(name)>=0||askedSite[name])return;
+  const s=site(name);
+  if(s){
+    // 一覧にはあるが、この会社の段取りでは選べない現場(フォレスト総建・伊賀林業の片方だけの現場)。選べるようにするかを聞く。ネクサスと一緒の現場は聞かない(選べない決まり)
+    if(okSite(s)||String(s.company||"ネクサス").split(/[,、\s]+/).indexOf("ネクサス")>=0)return;
+    askedSite[name]=true;
+    ask("「"+name+"」は "+s.company+" の現場として一覧にあります。\n"+F.company+" の段取りでも選べるようにしますか?",null,()=>editCall("addSite",{name:name,company:F.company},r=>{if(r.site)s.company=r.site.company}),{yes:"選べるようにする",no:"やめる"});
+    return;
+  }
+  if(siteName(name))return;
   askedSite[name]=true;
   ask("「"+name+"」は現場の一覧にありません。一覧に足しますか?\n(足すと、次から一覧で選べます)",null,()=>editCall("addSite",{name:name,company:F.company},r=>{if(r.site&&!site(r.site.name))D.sites.push(r.site)}),{yes:"一覧に足す",no:"今回だけ使う"});
 }
